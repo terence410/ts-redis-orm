@@ -1,0 +1,18 @@
+{
+  "default": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "connectTimeout": 1000,
+    "db": 0,
+    "showFriendlyErrorStack": false,
+    "maxConnectRetry": 10
+  },
+  "testing": {
+    "host": "127.0.0.1",
+    "port": 6378,
+    "connectTimeout": 500,
+    "db": 0,
+    "showFriendlyErrorStack": false,
+    "maxConnectRetry": 3
+  }
+}

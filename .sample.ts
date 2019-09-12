@@ -1,38 +1,12 @@
-# Redis ORM (Typescript)
-
-[ts-redis-orm](https://www.npmjs.com/package/reflect-metadata) targets to provide relational DB features to Redis Lover. 
-
-It is designed to preserve the performance of Redis, but extending all of the useful features that you found useful in relational DB such as 
-(multiple index, primary keys, unique keys, auto increment, aggregate, soft delete, etc..)
-
-Due to design limitation, the package doesn't work with Redis Cluster. 
-
-This package is mainly built on top of [ioredis](https://github.com/luin/ioredis]). 
-
-# Features
-- Simple class structure using typescript decorator. (Very similar to [type-orm](https://www.npmjs.com/package/typeorm))
-- Using native JS value types (Number, String, Boolean, Date, Array, Object).
-- Atomic. All redis logics are written in Lua to protect data integrity. 
-- Support complex query (see example below).
-- Built-in entity timestamps (createdAt, updatedAt, deletedAt) .
-- Soft delete.
-- Aggregate functions (count, sum, min, max, average).
-- You do not need to initialize a connection before using the entity. It's all done internally. 
-- Import / Export DB into file.
-- Good Performance. You can create around 10, 000 entities in 1 second for 1 CPU process. Query is also extremely effective with proper indexing settings.
-
-# Example
-```typescript
-
 import {
-    BaseEntity, 
-    Column, 
-    Entity, 
-    RedisOrmDecoratorError, 
-    RedisOrmEntityError, 
-    RedisOrmQueryError, 
+    BaseEntity,
+    Column,
+    Entity,
+    RedisOrmDecoratorError,
+    RedisOrmEntityError,
+    RedisOrmQueryError,
     RedisOrmSchemaError,
-} from "ts-redis-orm";
+} from "./src/"; // from "ts-redis-orm"
 
 @Entity({connection: "default", table: "entity", indexUpdatedAt: true})
 class MyEntity extends BaseEntity {
@@ -68,9 +42,9 @@ const main = async () => {
     // init the connection to redis, you don't need to call this. it will be done internally
     // for some scenarios, you can put this at the bootstrap of your project ot make sure everything is all right
     await MyEntity.connect();
-    
+
     // get the redis instance
-    const redis = await MyEntity.getRedis(); 
+    const redis = await MyEntity.getRedis();
 
     // we have an internal schema protection
     // if we encounter a schema error, you can try to resync it once
@@ -100,6 +74,7 @@ const main = async () => {
     entity1.increment("number", 10);
     entity1.createdAt = new Date(); // auto added into entity
     entity1.updatedAt = new Date(); // auto added into entity
+    entity1.deletedAt = new Date(); // auto added into entity
 
     // get values
     const id1 = entity1.id;
@@ -108,7 +83,6 @@ const main = async () => {
 
     // save
     await entity1.save();
-    entity1.deletedAt = new Date(); // you can override the deletedAt
     await entity1.delete(); // soft delete
     await entity1.forceDelete();
     await entity1.restore();
@@ -141,7 +115,7 @@ const main = async () => {
         .limit(10)
         .get();
 
-    // query deleted (you can only query exist or deleted records, but not both)
+    // query deleted (you can only query exist or delete records, but not both)
     const entities11 = MyEntity
         .query()
         .onlyDeleted()
@@ -154,11 +128,11 @@ const main = async () => {
     const max = await MyEntity.query().max("number");
     const avg = await MyEntity.query().avg("number");
     const countGroup = await MyEntity.query().groupBy("string").count();
-    
+
     // export / import
     await MyEntity.export("path");
     await MyEntity.import("path");
-    
+
     // errors
     try {
         await MyEntity.create({}).save();
@@ -179,57 +153,3 @@ const main = async () => {
         }
     }
 };
-
-```
-
-# Project Setup
-- npm install ts-redis-orm
-- In tsconfig.json, set "experimentalDecorators" to true. 
-- In tsconfig.json, set "emitDecoratorMetadata" to true. 
-- In tsconfig.json, set "strictNullChecks" to true. (To avoid type confusion in entity)
-- Create redisorm.default.json in the project root folder.
-  - If you wanted to manage multiple environment, you can create redisorm.${node_env}.json, where ${node_env} eqauls to the process.env.node_env environment variable.
-  - The library will search for the environment specific json file first. If it does not exist, it will try to load the redisorm.default.json.
-```json5
-{
-   // If you didn't set any connection in Entity, it will use the default connection.
-   // The connection config are the same as in ioredis, pleases visit https://github.com/luin/ioredis/blob/master/API.md for more details.
-  "default": {
-    "host": "127.0.0.1",
-    "port": 6379,
-    "connectTimeout": 1000,
-    "db": 0,
-    "showFriendlyErrorStack": false,
-    // this is an extra feature supported by ts-redis-orm, if redis suddenly go offline, the entity can prompt for an connection error.
-    "maxConnectRetry": 5
-  }
-}
-```
-- Create MyEntity.ts
-```typescript
-import {BaseEntity, Column, Entity} from "ts-redis-orm";
-
-@Entity({connection: "default", table: "entity", indexUpdatedAt: true})
-class MyEntity extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
-    public id: number = 0;
-}
-
-// usage 
-const entity = new MyEntity();
-await entity.save();
-```
-
-# Limitation and Usage Remarks
-- Redis Cluster is not supported. While you can try to break down each Entity to use different Redis DB.
-- The DB has no schema. It will prompt for error if you accidentally modified the Entity structure. It's safe to add new column and apply new indexing, but take your own risk to modify value type. 
-- High query performance can only be achieved with proper index on the column with single where clause. Multiple where clause is supported, but the performance is not guaranteed. 
-- One redis connection is created for each Entity Type.
-- Multiple index query is achieved by table intersection, which will be slow in some cases. Please try to limit the possible outcome of each where clause to achieve the best performance.
-- If you disable strictNullChecks in typescript or if you didn't initialize any values for your entity, here is the default value of each type
-  - string: ""
-  - number: Number.NaN
-  - date: new Date(Number.NaN) // Invalid Date
-  - boolean: false
-  - Array: undefined
-  - Object: undefined
