@@ -1,51 +1,3 @@
-local formatFn = {
-  ["%Y"] = function(self) return self["y"] end,
-  ["%y"] = function(self) return string.format("%.2d", self["y"] % 100) end,
-  ["%m"] = function(self) return string.format("%.2d", self["m"]) end,
-  ["%d"] = function(self) return string.format("%.2d", self["d"]) end,
-  ["%h"] = function(self) return string.format("%.2d", self["h"]) end,
-  ["%i"] = function(self) return string.format("%.2d", self["i"]) end,
-  ["%s"] = function(self) return string.format("%.2d", self["s"]) end
-};
-
-local function dateFormat(time, format)
-  time = tonumber(time)
-  if time ~= nil and time >= 0 then
-    local dates = {}
-    time = time / 1000;
-    dates["s"] = math.floor(time % 60)
-    time = time / 60;
-    dates["i"] = math.floor(time % 60)
-    time = time / 60;
-    dates["h"] = math.floor(time % 24)
-    time = time / 24
-    
-    local a = math.floor((4 * time + 102032) / 146097 + 15)
-    local b = math.floor(time + 2442113 + a - math.floor(a / 4))
-    local c = math.floor((20 * b - 2442) / 7305)
-    local d = math.floor(b - 365 * c - math.floor(c / 4))
-    local e = math.floor(d * 1000 / 30601)
-    local f = math.floor(d - e * 30 - math.floor(e * 601 / 1000))
- 
-    if e <= 13 then
-       c = c - 4716
-       e = e - 1
-    else
-       c = c - 4715
-       e = e - 13
-    end
-    
-    dates["y"] = c;
-    dates["m"] = e;
-    dates["d"] = f;
-    
-    local result = string.gsub(format, "%%[%a%%\\b\\f]", function(x) local f = formatFn[x]; return (f and f(dates) or x) end)
-    return result
-  end
-  
-  return ""
-end
-
 local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupByColumn, groupByDateFormat)
   local result = {}
   local total = {}
@@ -134,7 +86,7 @@ local function finalOrderBy(ids, tableName, column, order, offset, limit)
   local currTempStorageKey = tempStorageKey(tableName, column)
 
   -- remove temp table (if exist for some reason)
-  redis.call("DEL", currTempStorageKey);
+  redis.call("DEL", currTempStorageKey)
 
   -- add value into temp table
   for i, id in ipairs(ids) do
@@ -142,7 +94,7 @@ local function finalOrderBy(ids, tableName, column, order, offset, limit)
     local columnValue = redis.call("HGET", currEntityStorageKey, column)
 
     if tonumber(columnValue) == nil then
-        columnValue = "-inf";
+        columnValue = "-inf"
     end
 
     redis.call("ZADD", currTempStorageKey, columnValue, id)
@@ -160,7 +112,7 @@ local function finalOrderBy(ids, tableName, column, order, offset, limit)
   end
 
   -- remove temp table
-  redis.call("DEL", currTempStorageKey);
+  redis.call("DEL", currTempStorageKey)
 
   return tempIds
 end
@@ -209,22 +161,22 @@ local function whereSearch(ids, namespace, whereArgvs)
 end
 
 -- keys
-local indexCount = ARGV[1];
-local whereCount = ARGV[2];
-local offset = tonumber(ARGV[3]);
-local limit = tonumber(ARGV[4]);
-local tableName = ARGV[5];
-local aggregate = ARGV[6];
-local aggregateColumn = ARGV[7];
-local groupByColumn = ARGV[8];
-local groupByDateFormat = ARGV[9];
-local finalSortByColumn = ARGV[10];
-local finalSortByOrder = ARGV[11];
+local indexCount = ARGV[1]
+local whereCount = ARGV[2]
+local offset = tonumber(ARGV[3])
+local limit = tonumber(ARGV[4])
+local tableName = ARGV[5]
+local aggregate = ARGV[6]
+local aggregateColumn = ARGV[7]
+local groupByColumn = ARGV[8]
+local groupByDateFormat = ARGV[9]
+local finalSortByColumn = ARGV[10]
+local finalSortByOrder = ARGV[11]
 
 -- find the ids of the intersection of the indexes
 local indexArr = {}
 local indexTbls = {}
-local index = 12;
+local index = 12
 
 -- we only able to do sorting for the first where cause
 local firstTable = true

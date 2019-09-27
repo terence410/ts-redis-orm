@@ -49,11 +49,10 @@ const main = async () => {
     // we have an internal schema protection
     // if we encounter a schema error, you can try to resync it once
     try {
-        await MyEntity.connect();
         await MyEntity.create({}).save();
     } catch (err) {
         if (err instanceof RedisOrmSchemaError) {
-            await MyEntity.resyncSchemas();
+            await MyEntity.resyncDb();
         }
     }
 
@@ -128,6 +127,11 @@ const main = async () => {
     const max = await MyEntity.query().max("number");
     const avg = await MyEntity.query().avg("number");
     const countGroup = await MyEntity.query().groupBy("string").count();
+
+    // rank (get the ordering of an entity from index, useful for doing ranking)
+    const id = 1;
+    const rank = await MyEntity.query().rank("number", id);
+    const reversedRank = await MyEntity.query().rank("number", id, true);
 
     // export / import
     await MyEntity.export("path");

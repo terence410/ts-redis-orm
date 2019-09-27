@@ -141,17 +141,24 @@ describe("General Test: Create Entity", () => {
         let deletedEntity = await TestingGeneral.find(id);
         assert.isUndefined(deletedEntity);
 
-        deletedEntity = await TestingGeneral.query().onlyDeleted().findUnique("uniqueNumber", id);
-        assert.isDefined(deletedEntity);
+        // we cannot found by unique key anymore
+        const foundDeletedEntity = await TestingGeneral.query().onlyDeleted().findUnique("uniqueNumber", id);
+        assert.isUndefined(foundDeletedEntity);
 
         // restore entity
+        deletedEntity = await TestingGeneral.query().onlyDeleted().find(id);
+        assert.isDefined(deletedEntity);
         if (deletedEntity) {
             await deletedEntity.restore();
             assert.isFalse(deletedEntity.isDeleted);
         }
 
-        // find again
+        // find again by id
         newEntity = await TestingGeneral.find(id);
+        assert.isDefined(newEntity);
+
+        // find again by unique
+        newEntity = await TestingGeneral.query().findUnique("uniqueNumber", id);
         assert.isDefined(newEntity);
 
         // force delete
@@ -413,10 +420,6 @@ describe("General Test: Create Entity", () => {
         if (newEntity) {
             assert.deepEqual(entity.number, newEntity.number);
         }
-    });
-
-    it("rebuild index", async () => {
-        await TestingGeneral.rebuildIndex("number");
     });
 });
 

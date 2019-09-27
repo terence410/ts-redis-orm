@@ -1,6 +1,8 @@
--- debug purpose
---redis.pcall("del", "debug")
-local function logit(msg)
+local function debugClear()
+    redis.pcall("del", "debug")
+end
+
+local function debug(msg)
     redis.pcall("RPUSH", "debug", msg)
 end
 
@@ -8,6 +10,14 @@ local function error(errorMessage)
     local respond = {}
     respond["error"] = errorMessage
     return cjson.encode(respond)
+end
+
+local function isempty(s)
+    return s == nil or s == ""
+end
+
+local function isnotempty(s)
+    return s ~= nil and s ~= ""
 end
 
 local function entityStorageKey(tableName, id)
@@ -30,17 +40,33 @@ local function tempStorageKey(tableName, column)
     return "temp:" .. tableName .. ":" .. column
 end
 
-local function isempty(s)
-    return s == nil or s == ""
+
+local function remoteSchemas(tableName)
+    local currMetaStorageKey = metaStorageKey(tableName)
+    local remoteSchemas = redis.call("HGET", currMetaStorageKey, "schemas")
+
+    if remoteSchemas == false then
+        return {}
+    end
+
+    return cjson.decode(remoteSchemas)
 end
 
-local function isnotempty(s)
-    return s ~= nil and s ~= ""
+local function verifySchemas(tableName, clientSchemasString)
+    local currMetaStorageKey = metaStorageKey(tableName)
+    local remoteSchemas = redis.call("HGET", currMetaStorageKey, "schemas")
+
+    if remoteSchemas == false then
+        redis.call("HSET", currMetaStorageKey, "schemas", clientSchemasString)
+        return true
+    end
+
+    return remoteSchemas == clientSchemasString
 end
 
 function table.check(indexArr)
     for i, val in pairs( indexArr ) do
-        logit(tostring(i) .. ": (" .. type(val) .. ") " .. val);
+        logit(tostring(i) .. ": (" .. type(val) .. ") " .. val)
     end
 end
 
@@ -120,3 +146,52 @@ function table.whereIndexIntersect(indexArr, tbls)
     return table.values(indexArr)
 end
 
+
+-- others
+local formatFn = {
+    ["%Y"] = function(self) return self["y"] end,
+    ["%y"] = function(self) return string.format("%.2d", self["y"] % 100) end,
+    ["%m"] = function(self) return string.format("%.2d", self["m"]) end,
+    ["%d"] = function(self) return string.format("%.2d", self["d"]) end,
+    ["%h"] = function(self) return string.format("%.2d", self["h"]) end,
+    ["%i"] = function(self) return string.format("%.2d", self["i"]) end,
+    ["%s"] = function(self) return string.format("%.2d", self["s"]) end
+}
+
+local function dateFormat(time, format)
+    time = tonumber(time)
+    if time ~= nil and time >= 0 then
+        local dates = {}
+        time = time / 1000
+        dates["s"] = math.floor(time % 60)
+        time = time / 60
+        dates["i"] = math.floor(time % 60)
+        time = time / 60
+        dates["h"] = math.floor(time % 24)
+        time = time / 24
+
+        local a = math.floor((4 * time + 102032) / 146097 + 15)
+        local b = math.floor(time + 2442113 + a - math.floor(a / 4))
+        local c = math.floor((20 * b - 2442) / 7305)
+        local d = math.floor(b - 365 * c - math.floor(c / 4))
+        local e = math.floor(d * 1000 / 30601)
+        local f = math.floor(d - e * 30 - math.floor(e * 601 / 1000))
+
+        if e <= 13 then
+            c = c - 4716
+            e = e - 1
+        else
+            c = c - 4715
+            e = e - 13
+        end
+
+        dates["y"] = c
+        dates["m"] = e
+        dates["d"] = f
+
+        local result = string.gsub(format, "%%[%a%%\\b\\f]", function(x) local f = formatFn[x]; return (f and f(dates) or x) end)
+        return result
+    end
+
+    return ""
+end

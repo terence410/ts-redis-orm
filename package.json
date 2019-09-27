@@ -15,7 +15,11 @@
     "test-schema": "mocha --exit --timeout 10000 -r ts-node/register tests/schema.test.ts",
     "test-export": "mocha --exit --timeout 10000 -r ts-node/register tests/export.test.ts",
     "test-decorator": "mocha --exit --timeout 10000 -r ts-node/register tests/decorator.test.ts",
+    "test-rank": "mocha --exit --timeout 10000 -r ts-node/register tests/rank.test.ts",
     "build": "tsc"
+  },
+  "bin": {
+    "ts-redis-orm": "./build/cli.js"
   },
   "dependencies": {
     "ioredis": "^4.14.0",

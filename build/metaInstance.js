@@ -50,7 +50,7 @@ var ioredis_1 = __importDefault(require("ioredis"));
 var path = __importStar(require("path"));
 var configLoader_1 = require("./configLoader");
 var RedisOrmDecoratorError_1 = require("./errors/RedisOrmDecoratorError");
-var RedisOrmSchemaError_1 = require("./errors/RedisOrmSchemaError");
+var RedisOrmQueryError_1 = require("./errors/RedisOrmQueryError");
 var IOREDIS_ERROR_RETRY_DELAY = 1000;
 var IOREDIS_CONNECT_TIMEOUT = 10000;
 var IOREDIS_REIGSTER_LUA_DELAY = 100;
@@ -59,6 +59,7 @@ var MetaInstance = /** @class */ (function () {
     function MetaInstance() {
         this._entityMetas = new Map();
         this._entitySchemas = new Map();
+        this._entitySchemasJsons = new Map(); // cache for faster JSON.stringify
         // endregion
     }
     // region public methods: set
@@ -128,6 +129,18 @@ var MetaInstance = /** @class */ (function () {
     MetaInstance.prototype.getSchemas = function (target) {
         return this._entitySchemas.get(target) || {};
     };
+    MetaInstance.prototype.getSchemasJson = function (target) {
+        if (!this._entitySchemasJsons.has(target)) {
+            var schemas_1 = this.getSchemas(target);
+            var keys = Object.keys(schemas_1).sort();
+            var sortedSchemas = keys.reduce(function (a, b) {
+                var _a;
+                return Object.assign(a, (_a = {}, _a[b] = schemas_1[b], _a));
+            }, {});
+            this._entitySchemasJsons.set(target, JSON.stringify(sortedSchemas, schemaJsonReplacer));
+        }
+        return this._entitySchemasJsons.get(target);
+    };
     MetaInstance.prototype.getSchema = function (target, column) {
         var schemas = this.getSchemas(target);
         return schemas[column];
@@ -145,6 +158,9 @@ var MetaInstance = /** @class */ (function () {
             return idObject.toString();
         }
         else if (typeof idObject === "object") {
+            if (!primaryKeys.every(function (column) { return column in idObject; })) {
+                throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid id " + JSON.stringify(idObject));
+            }
             return primaryKeys
                 .map(function (column) { return idObject[column].toString().replace(/:/g, ""); })
                 .join(":");
@@ -186,8 +202,8 @@ var MetaInstance = /** @class */ (function () {
     };
     // endregion
     // region redis
-    MetaInstance.prototype.getRedis = function (target, connectRedis) {
-        if (connectRedis === void 0) { connectRedis = true; }
+    MetaInstance.prototype.getRedis = function (target, registerRedis) {
+        if (registerRedis === void 0) { registerRedis = true; }
         return __awaiter(this, void 0, void 0, function () {
             var entityMeta, redisContainer, connectionConfig;
             return __generator(this, function (_a) {
@@ -206,31 +222,72 @@ var MetaInstance = /** @class */ (function () {
                             };
                             entityMeta.redisMaster = redisContainer;
                         }
-                        if (!connectRedis) return [3 /*break*/, 2];
-                        return [4 /*yield*/, this._connectRedis(target, redisContainer)];
+                        if (!registerRedis) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this._registerRedis(target, redisContainer)];
                     case 1:
                         _a.sent();
-                        if (redisContainer.schemaErrors.length > 0) {
-                            throw new RedisOrmSchemaError_1.RedisOrmSchemaError("Connect Errors. Please check the property \"errors\" for details. ' + \n                    'You can use resyncSchema() to resync the latest schema to remote host.", redisContainer.schemaErrors);
-                        }
-                        // throw the error repeatly for anything happend inside connectRedis
-                        if (redisContainer.error) {
-                            throw redisContainer.error;
-                        }
                         _a.label = 2;
                     case 2: return [2 /*return*/, redisContainer.redis];
                 }
             });
         });
     };
-    MetaInstance.prototype.resyncSchema = function (target) {
+    MetaInstance.prototype.compareSchemas = function (target) {
         return __awaiter(this, void 0, void 0, function () {
-            var schemas, clientSchemasJson, metaStorageKey, hashKey, redis;
+            var redis, errors, remoteSchemas, clientSchemasJson, clientSchemas, err_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, exports.metaInstance.getRedis(target)];
+                    case 1:
+                        redis = _a.sent();
+                        errors = [];
+                        _a.label = 2;
+                    case 2:
+                        _a.trys.push([2, 4, , 5]);
+                        return [4 /*yield*/, this.getRemoteSchemas(target, redis)];
+                    case 3:
+                        remoteSchemas = _a.sent();
+                        if (remoteSchemas) {
+                            clientSchemasJson = this.getSchemasJson(target);
+                            clientSchemas = JSON.parse(clientSchemasJson);
+                            errors = this._validateSchemas(clientSchemas, remoteSchemas);
+                        }
+                        return [3 /*break*/, 5];
+                    case 4:
+                        err_1 = _a.sent();
+                        // just throw directly
+                        throw err_1;
+                    case 5: return [2 /*return*/, errors];
+                }
+            });
+        });
+    };
+    MetaInstance.prototype.getRemoteSchemas = function (target, redis) {
+        return __awaiter(this, void 0, void 0, function () {
+            var metaStorageKey, hashKey, remoteSchemasString;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        schemas = this.getSchemas(target);
-                        clientSchemasJson = JSON.stringify(schemas, schemaJsonReplacer);
+                        metaStorageKey = this.getMetaStorageKey(target);
+                        hashKey = "schemas";
+                        return [4 /*yield*/, redis.hget(metaStorageKey, hashKey)];
+                    case 1:
+                        remoteSchemasString = _a.sent();
+                        if (remoteSchemasString) {
+                            return [2 /*return*/, JSON.parse(remoteSchemasString)];
+                        }
+                        return [2 /*return*/, null];
+                }
+            });
+        });
+    };
+    MetaInstance.prototype.resyncDb = function (target) {
+        return __awaiter(this, void 0, void 0, function () {
+            var clientSchemasJson, metaStorageKey, hashKey, redis;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        clientSchemasJson = this.getSchemasJson(target);
                         metaStorageKey = this.getMetaStorageKey(target);
                         hashKey = "schemas";
                         return [4 /*yield*/, this.getRedis(target, false)];
@@ -260,81 +317,36 @@ var MetaInstance = /** @class */ (function () {
     };
     // endregion
     // region private methods
-    MetaInstance.prototype._connectRedis = function (target, redisContainer) {
+    MetaInstance.prototype._registerRedis = function (target, redisContainer) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, err_1;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
+            var err_2;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
                     case 0:
                         if (!redisContainer.connecting) return [3 /*break*/, 2];
                         return [4 /*yield*/, new Promise(function (resolve) { return setTimeout(resolve, IOREDIS_REIGSTER_LUA_DELAY); })];
                     case 1:
-                        _b.sent();
+                        _a.sent();
                         return [3 /*break*/, 0];
                     case 2:
-                        if (!!redisContainer.ready) return [3 /*break*/, 8];
+                        if (!!redisContainer.ready) return [3 /*break*/, 7];
                         redisContainer.connecting = true;
-                        _b.label = 3;
+                        _a.label = 3;
                     case 3:
-                        _b.trys.push([3, 6, , 7]);
+                        _a.trys.push([3, 5, , 6]);
                         return [4 /*yield*/, this._registerLau(target, redisContainer)];
                     case 4:
-                        _b.sent();
-                        // check schemas
-                        _a = redisContainer;
-                        return [4 /*yield*/, this._checkSchemas(target, redisContainer)];
+                        _a.sent();
+                        return [3 /*break*/, 6];
                     case 5:
-                        // check schemas
-                        _a.schemaErrors = _b.sent();
-                        return [3 /*break*/, 7];
+                        err_2 = _a.sent();
+                        redisContainer.error = err_2;
+                        return [3 /*break*/, 6];
                     case 6:
-                        err_1 = _b.sent();
-                        redisContainer.error = err_1;
-                        return [3 /*break*/, 7];
-                    case 7:
                         redisContainer.ready = true;
                         redisContainer.connecting = false;
-                        _b.label = 8;
-                    case 8: return [2 /*return*/];
-                }
-            });
-        });
-    };
-    MetaInstance.prototype._checkSchemas = function (target, redisContainer) {
-        return __awaiter(this, void 0, void 0, function () {
-            var errors, schemas, clientSchemasJson, metaStorageKey, hashKey, remoteSchemasString, remoteSchemas, clientSchemas, err_2;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        errors = [];
-                        schemas = this.getSchemas(target);
-                        clientSchemasJson = JSON.stringify(schemas, schemaJsonReplacer);
-                        metaStorageKey = this.getMetaStorageKey(target);
-                        hashKey = "schemas";
-                        _a.label = 1;
-                    case 1:
-                        _a.trys.push([1, 6, , 7]);
-                        return [4 /*yield*/, redisContainer.redis.hget(metaStorageKey, hashKey)];
-                    case 2:
-                        remoteSchemasString = _a.sent();
-                        if (!!remoteSchemasString) return [3 /*break*/, 4];
-                        // if we didn't have remove column metas, save it
-                        return [4 /*yield*/, redisContainer.redis.hset(metaStorageKey, hashKey, clientSchemasJson)];
-                    case 3:
-                        // if we didn't have remove column metas, save it
-                        _a.sent();
-                        return [3 /*break*/, 5];
-                    case 4:
-                        remoteSchemas = JSON.parse(remoteSchemasString);
-                        clientSchemas = JSON.parse(clientSchemasJson);
-                        errors = this._validateSchemas(clientSchemas, remoteSchemas);
-                        _a.label = 5;
-                    case 5: return [3 /*break*/, 7];
-                    case 6:
-                        err_2 = _a.sent();
-                        // just throw directly
-                        throw err_2;
-                    case 7: return [2 /*return*/, errors];
+                        _a.label = 7;
+                    case 7: return [2 /*return*/];
                 }
             });
         });
@@ -347,12 +359,12 @@ var MetaInstance = /** @class */ (function () {
                     case 0:
                         _a.trys.push([0, 6, , 7]);
                         luaShared = fs.readFileSync(path.join(__dirname, "../lua/shared.lua"), { encoding: "utf8" });
-                        lua1 = fs.readFileSync(path.join(__dirname, "../lua/atomicRebuildIndex.lua"), { encoding: "utf8" });
-                        return [4 /*yield*/, redisContainer.redis.defineCommand("commandAtomicRebuildIndex", { numberOfKeys: 0, lua: luaShared + lua1 })];
+                        lua1 = fs.readFileSync(path.join(__dirname, "../lua/atomicResyncDb.lua"), { encoding: "utf8" });
+                        return [4 /*yield*/, redisContainer.redis.defineCommand("commandAtomicResyncDb", { numberOfKeys: 0, lua: luaShared + lua1 })];
                     case 1:
                         _a.sent();
-                        lua2 = fs.readFileSync(path.join(__dirname, "../lua/mixedQuery.lua"), { encoding: "utf8" });
-                        return [4 /*yield*/, redisContainer.redis.defineCommand("commandMixedQuery", { numberOfKeys: 0, lua: luaShared + lua2 })];
+                        lua2 = fs.readFileSync(path.join(__dirname, "../lua/atomicMixedQuery.lua"), { encoding: "utf8" });
+                        return [4 /*yield*/, redisContainer.redis.defineCommand("commandAtomicMixedQuery", { numberOfKeys: 0, lua: luaShared + lua2 })];
                     case 2:
                         _a.sent();
                         lua3 = fs.readFileSync(path.join(__dirname, "../lua/atomicSave.lua"), { encoding: "utf8" });
@@ -390,30 +402,30 @@ var MetaInstance = /** @class */ (function () {
             var remoteSchema = remoteSchemas[column];
             if (clientSchema.type !== remoteSchema.type) {
                 // tslint:disable-next-line:max-line-length
-                errors.push("Column: " + column + " has different type. The current type: " + clientSchema.type + " is different with the remote type: " + remoteSchema.type + " ");
+                errors.push("Incompatible type on column: " + column + ", current value: " + clientSchema.type + ", remove value: " + remoteSchema.type);
             }
             if (clientSchema.index !== remoteSchema.index) {
                 // tslint:disable-next-line:max-line-length
-                errors.push("Column: " + column + " has different index. The current index: " + clientSchema.index + " is different with the remote index: " + remoteSchema.index + " ");
+                errors.push("Incompatible index on column: " + column + ", current value: " + clientSchema.index + ", remove value: " + remoteSchema.index);
             }
             if (clientSchema.unique !== remoteSchema.unique) {
                 // tslint:disable-next-line:max-line-length
-                errors.push("Column: " + column + " has different unique. The current unique: " + clientSchema.unique + " is different with the remote unique: " + remoteSchema.unique + " ");
+                errors.push("Incompatible unique on column: " + column + ", current value: " + clientSchema.unique + ", remove value: " + remoteSchema.unique);
             }
             if (clientSchema.autoIncrement !== remoteSchema.autoIncrement) {
                 // tslint:disable-next-line:max-line-length
-                errors.push("Column: " + column + " has different autoIncrement. The current autoIncrement: " + clientSchema.autoIncrement + " is different with the remote autoIncrement: " + remoteSchema.autoIncrement + " ");
+                errors.push("Incompatible autoIncrement on column: " + column + ", current value: " + clientSchema.autoIncrement + ", remove value: " + remoteSchema.autoIncrement);
             }
             if (clientSchema.primary !== remoteSchema.primary) {
                 // tslint:disable-next-line:max-line-length
-                errors.push("Column: " + column + " has different primary. The current primary: " + clientSchema.primary + " is different with the remote primary: " + remoteSchema.primary + " ");
+                errors.push("Incompatible primary on column: " + column + ", current value: " + clientSchema.primary + ", remove value: " + remoteSchema.primary);
             }
         }
         // check client schemas has all keys in remote schemas
         for (var _b = 0, _c = Object.keys(remoteSchemas); _b < _c.length; _b++) {
             var column = _c[_b];
             if (!(column in clientSchemas)) {
-                errors.push("Column: " + column + " does not exist in client schemas");
+                errors.push("Column: " + column + " does not exist in current schemas");
             }
         }
         return errors;

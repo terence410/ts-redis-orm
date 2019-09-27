@@ -13,7 +13,8 @@ This package is mainly built on top of [ioredis](https://github.com/luin/ioredis
 - Simple class structure using typescript decorator. (Very similar to [type-orm](https://www.npmjs.com/package/typeorm))
 - Using native JS value types (Number, String, Boolean, Date, Array, Object).
 - Atomic. All redis logics are written in Lua to protect data integrity. 
-- Support complex query (see example below).
+- Schema validation and database reSync.
+- Support multiple index keys and unique keys.
 - Built-in entity timestamps (createdAt, updatedAt, deletedAt) .
 - Soft delete.
 - Aggregate functions (count, sum, min, max, average).
@@ -73,13 +74,12 @@ const main = async () => {
     const redis = await MyEntity.getRedis(); 
 
     // we have an internal schema protection
-    // if we encounter a schema error, you can try to resync it once
+    // if we encounter a schema error, you can try to call resyncDb it once
     try {
-        await MyEntity.connect();
         await MyEntity.create({}).save();
     } catch (err) {
         if (err instanceof RedisOrmSchemaError) {
-            await MyEntity.resyncSchemas();
+            await MyEntity.resyncDb();
         }
     }
 
@@ -155,6 +155,11 @@ const main = async () => {
     const avg = await MyEntity.query().avg("number");
     const countGroup = await MyEntity.query().groupBy("string").count();
     
+    // rank (get the ordering of an entity from index, useful for doing ranking)
+    const id = 1;
+    const rank = await MyEntity.query().rank("number", id);
+    const reversedRank = await MyEntity.query().rank("number", id, true);
+    
     // export / import
     await MyEntity.export("path");
     await MyEntity.import("path");
@@ -222,7 +227,6 @@ await entity.save();
 
 # Limitation and Usage Remarks
 - Redis Cluster is not supported. While you can try to break down each Entity to use different Redis DB.
-- The DB has no schema. It will prompt for error if you accidentally modified the Entity structure. It's safe to add new column and apply new indexing, but take your own risk to modify value type. 
 - High query performance can only be achieved with proper index on the column with single where clause. Multiple where clause is supported, but the performance is not guaranteed. 
 - One redis connection is created for each Entity Type.
 - Multiple index query is achieved by table intersection, which will be slow in some cases. Please try to limit the possible outcome of each where clause to achieve the best performance.

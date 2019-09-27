@@ -83,7 +83,35 @@ describe("Primary Keys Test", () => {
         } catch (err) {
             //
         }
+    });
 
+    it("find entity: by entityId", async () => {
+        const entity = new TestingPrimaryKeys();
+        entity.numberKey1 = 1;
+        entity.numberKey2 = 2;
+        entity.stringKey3 = "entityId";
+        await entity.save();
+        
+        const foundEntity1 = await TestingPrimaryKeys.find(entity.getEntityId());
+        assert.isDefined(foundEntity1);
+        if (foundEntity1) {
+            assert.deepEqual(entity.getValues(), foundEntity1.getValues());
+        }
+
+        const foundEntity2 = await TestingPrimaryKeys.find(entity.getValues());
+        assert.isDefined(foundEntity2);
+        if (foundEntity2) {
+            assert.deepEqual(entity.getValues(), foundEntity2.getValues());
+        }
+    });
+
+    it("find entity: error", async () => {
+        try {
+            const entity = await TestingPrimaryKeys.find({});
+            assert.isTrue(false);
+        } catch (err) {
+            //
+        }
     });
 });
 

@@ -64,7 +64,7 @@ var Query = /** @class */ (function () {
                         if (!entityId) return [3 /*break*/, 3];
                         entityStorageKey = metaInstance_1.metaInstance.getEntityStorageKey(this._entityType, entityId);
                         if (!entityStorageKey) {
-                            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid id " + idObject);
+                            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid id " + JSON.stringify(idObject));
                         }
                         return [4 /*yield*/, redis.hgetall(entityStorageKey)];
                     case 2:
@@ -315,6 +315,44 @@ var Query = /** @class */ (function () {
         });
     };
     // endregion
+    // region: rank
+    Query.prototype.rank = function (column, idObject, isReverse) {
+        if (isReverse === void 0) { isReverse = false; }
+        return __awaiter(this, void 0, void 0, function () {
+            var indexStorageKey, entityId, redis, offset;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!metaInstance_1.metaInstance.isIndexKey(this._entityType, column)) {
+                            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid index column: " + column);
+                        }
+                        indexStorageKey = metaInstance_1.metaInstance.getIndexStorageKey(this._entityType, column);
+                        entityId = metaInstance_1.metaInstance.convertAsEntityId(this._entityType, idObject);
+                        if (!entityId) return [3 /*break*/, 6];
+                        return [4 /*yield*/, this._getRedis()];
+                    case 1:
+                        redis = _a.sent();
+                        offset = null;
+                        if (!isReverse) return [3 /*break*/, 3];
+                        return [4 /*yield*/, redis.zrevrank(indexStorageKey, entityId)];
+                    case 2:
+                        offset = _a.sent();
+                        return [3 /*break*/, 5];
+                    case 3: return [4 /*yield*/, redis.zrank(indexStorageKey, entityId)];
+                    case 4:
+                        offset = _a.sent();
+                        _a.label = 5;
+                    case 5:
+                        if (offset !== null) {
+                            return [2 /*return*/, offset];
+                        }
+                        _a.label = 6;
+                    case 6: return [2 /*return*/, -1];
+                }
+            });
+        });
+    };
+    // endregion
     // region private methods
     Query.prototype._get = function () {
         return __awaiter(this, void 0, void 0, function () {
@@ -364,7 +402,7 @@ var Query = /** @class */ (function () {
                         return [4 /*yield*/, this._getRedis()];
                     case 1:
                         redis = _h.sent();
-                        return [4 /*yield*/, redis.commandMixedQuery([], params)];
+                        return [4 /*yield*/, redis.commandAtomicMixedQuery([], params)];
                     case 2:
                         ids = _h.sent();
                         return [4 /*yield*/, this.findMany(ids)];
@@ -461,7 +499,7 @@ var Query = /** @class */ (function () {
                         return [4 /*yield*/, this._getRedis()];
                     case 3:
                         redis = _h.sent();
-                        return [4 /*yield*/, redis.commandMixedQuery([], params)];
+                        return [4 /*yield*/, redis.commandAtomicMixedQuery([], params)];
                     case 4:
                         commandResult = _h.sent();
                         result = JSON.parse(commandResult);

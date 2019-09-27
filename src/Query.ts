@@ -40,7 +40,7 @@ export class Query<T extends typeof BaseEntity> {
             const entityStorageKey = metaInstance.getEntityStorageKey(this._entityType, entityId);
 
             if (!entityStorageKey) {
-                throw new RedisOrmQueryError(`Invalid id ${idObject}`);
+                throw new RedisOrmQueryError(`Invalid id ${JSON.stringify(idObject)}`);
             }
 
             // we need to make sure if have all the keys exist in the storage strings
@@ -254,6 +254,36 @@ export class Query<T extends typeof BaseEntity> {
 
     // endregion
 
+    // region: rank
+
+    public async rank(column: IArgColumn<T>, idObject: IIdObject<InstanceType<T>>, isReverse: boolean = false):
+        Promise<number> {
+        if (!metaInstance.isIndexKey(this._entityType, column as string)) {
+            throw new RedisOrmQueryError(`Invalid index column: ${column}`);
+        }
+
+        const indexStorageKey = metaInstance.getIndexStorageKey(this._entityType, column as string);
+        const entityId = metaInstance.convertAsEntityId(this._entityType, idObject);
+
+        if (entityId) {
+            const redis = await this._getRedis();
+            let offset: number | null = null;
+            if (isReverse) {
+                offset = await redis.zrevrank(indexStorageKey, entityId);
+            } else {
+                offset = await redis.zrank(indexStorageKey, entityId);
+            }
+
+            if (offset !== null) {
+                return offset;
+            }
+        }
+
+        return -1;
+    }
+
+    // endregion
+
     // region private methods
 
     private async _get(): Promise<Array<InstanceType<T>>> {
@@ -303,7 +333,7 @@ export class Query<T extends typeof BaseEntity> {
 
         // whereSearches
         const redis = await this._getRedis();
-        const ids =  await (redis as any).commandMixedQuery([], params);
+        const ids =  await (redis as any).commandAtomicMixedQuery([], params);
         return await this.findMany(ids);
     }
 
@@ -383,7 +413,7 @@ export class Query<T extends typeof BaseEntity> {
         }
 
         const redis = await this._getRedis();
-        const commandResult =  await (redis as any).commandMixedQuery([], params);
+        const commandResult =  await (redis as any).commandAtomicMixedQuery([], params);
         const result = JSON.parse(commandResult);
 
         if (!this._groupByColumn) {

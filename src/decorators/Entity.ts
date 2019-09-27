@@ -23,8 +23,7 @@ export function Entity(entityMeta: {[P in keyof IEntityBaseMeta]?: IEntityBaseMe
             unique: false,
         };
         metaInstance.addColumn(target, "createdAt", schema);
-        metaInstance.addColumn(target, "updatedAt",
-            Object.assign(schema, {index: newEntityMeta.indexUpdatedAt}));
+        metaInstance.addColumn(target, "updatedAt", {...schema, index: newEntityMeta.indexUpdatedAt});
         metaInstance.addColumn(target, "deletedAt", schema);
 
         // validate from entity

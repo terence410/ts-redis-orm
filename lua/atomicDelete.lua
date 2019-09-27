@@ -12,13 +12,26 @@ local currEntityStorageKey = entityStorageKey(tableName, entityId)
 -- make sure model exist
 local exist = redis.call("EXISTS", currEntityStorageKey)
 if exist ~= 1 then
-    return error("Entity not exist: " .. entityId);
+    return error("Entity not exist: " .. entityId)
 end
 
 -- remove all indexes
 if #indexKeys > 0 then
-    for i, indexKey in pairs( indexKeys ) do
+    for i, indexKey in pairs(indexKeys) do
         redis.call("ZREM", indexStorageKey(tableName, indexKey), entityId)
+    end
+end
+
+-- remove all unqiueKeys
+if #uniqueKeys > 0 then
+    for i, uniqueKey in pairs(uniqueKeys) do
+        -- if the attributes has set value
+        local currUniqueKeyValue = redis.call("HGET", currEntityStorageKey, uniqueKey)
+
+        -- remove the old unique key since they are different
+        if currUniqueKeyValue ~= false then
+            redis.call("HDEL", uniqueStorageKey(tableName, uniqueKey), currUniqueKeyValue)
+        end
     end
 end
 
@@ -33,21 +46,8 @@ else
     -- remove deletedAt index
     redis.call("ZREM", indexStorageKey(tableName, "deletedAt"), entityId)
 
-    -- remove all unqiueKeys
-    if #uniqueKeys > 0 then
-        for i, uniqueKey in pairs( uniqueKeys ) do
-            -- if the attributes has set value
-            local currUniqueKeyValue = redis.call("HGET", currEntityStorageKey, uniqueKey)
-
-            -- remove the old unique key since they are different
-            if currUniqueKeyValue ~= false then
-                redis.call("HDEL", uniqueStorageKey(tableName, uniqueKey), currUniqueKeyValue)
-            end
-        end
-    end
-
     -- remove the entity
-    redis.call("DEL", currEntityStorageKey);
+    redis.call("DEL", currEntityStorageKey)
 end
 
 return cjson.encode(result)

@@ -37,6 +37,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var entityExporter_1 = require("./entityExporter");
 var RedisOrmEntityError_1 = require("./errors/RedisOrmEntityError");
+var RedisOrmSchemaError_1 = require("./errors/RedisOrmSchemaError");
 var metaInstance_1 = require("./metaInstance");
 var parser_1 = require("./parser");
 var Query_1 = require("./Query");
@@ -131,44 +132,40 @@ var BaseEntity = /** @class */ (function () {
             });
         });
     };
-    BaseEntity.resyncSchemas = function () {
+    BaseEntity.resyncDb = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var redis;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, metaInstance_1.metaInstance.resyncSchema(this)];
-                    case 1:
-                        redis = _a.sent();
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    BaseEntity.rebuildIndex = function (column) {
-        return __awaiter(this, void 0, void 0, function () {
-            var redis, tableName, keys;
+            var redis, remoteSchemas, tableName, keys, params, commandResult, saveResult;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this)];
                     case 1:
                         redis = _a.sent();
-                        if (!metaInstance_1.metaInstance.isIndexKey(this, column)) {
-                            throw new RedisOrmEntityError_1.RedisOrmEntityError("Column: " + column + " is not a valid index");
-                        }
+                        return [4 /*yield*/, metaInstance_1.metaInstance.getRemoteSchemas(this, redis)];
+                    case 2:
+                        remoteSchemas = _a.sent();
+                        if (!remoteSchemas) return [3 /*break*/, 4];
                         tableName = metaInstance_1.metaInstance.getTable(this);
-                        keys = [
+                        keys = [];
+                        params = [
+                            metaInstance_1.metaInstance.getSchemasJson(this),
                             tableName,
-                            column,
                         ];
-                        return [4 /*yield*/, redis.commandAtomicRebuildIndex(keys)];
-                    case 2: return [2 /*return*/, _a.sent()];
+                        return [4 /*yield*/, redis.commandAtomicResyncDb(keys, params)];
+                    case 3:
+                        commandResult = _a.sent();
+                        saveResult = JSON.parse(commandResult);
+                        if (saveResult.error) {
+                            throw new RedisOrmEntityError_1.RedisOrmEntityError(saveResult.error);
+                        }
+                        _a.label = 4;
+                    case 4: return [2 /*return*/];
                 }
             });
         });
     };
     BaseEntity.truncate = function (className) {
         return __awaiter(this, void 0, void 0, function () {
-            var redis, indexKeys, uniqueKeys, tableName, keys, params;
+            var redis, remoteSchemas, tableName, keys, params;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -178,19 +175,22 @@ var BaseEntity = /** @class */ (function () {
                         return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this)];
                     case 1:
                         redis = _a.sent();
-                        indexKeys = metaInstance_1.metaInstance.getIndexKeys(this);
-                        uniqueKeys = metaInstance_1.metaInstance.getUniqueKeys(this);
+                        return [4 /*yield*/, metaInstance_1.metaInstance.getRemoteSchemas(this, redis)];
+                    case 2:
+                        remoteSchemas = _a.sent();
+                        if (!remoteSchemas) return [3 /*break*/, 4];
                         tableName = metaInstance_1.metaInstance.getTable(this);
                         keys = [];
                         params = [
                             tableName,
-                            JSON.stringify(indexKeys),
-                            JSON.stringify(uniqueKeys),
                         ];
+                        // remove everything
                         return [4 /*yield*/, redis.commandAtomicTruncate(keys, params)];
-                    case 2:
+                    case 3:
+                        // remove everything
                         _a.sent();
-                        return [2 /*return*/];
+                        _a.label = 4;
+                    case 4: return [2 /*return*/];
                 }
             });
         });
@@ -441,7 +441,7 @@ var BaseEntity = /** @class */ (function () {
     BaseEntity.prototype._saveInternal = function (_a) {
         var _b = (_a === void 0 ? {} : _a).isRestore, isRestore = _b === void 0 ? false : _b;
         return __awaiter(this, void 0, void 0, function () {
-            var changes, tableName, indexKeys, uniqueKeys, autoIncrementKey, entityId, params, redis, commandResult, saveResult, _i, _c, _d, column, value;
+            var changes, tableName, indexKeys, uniqueKeys, autoIncrementKey, entityId, params, redis, commandResult, saveResult, schemaErrors, _i, _c, _d, column, value;
             return __generator(this, function (_e) {
                 switch (_e.label) {
                     case 0:
@@ -474,6 +474,7 @@ var BaseEntity = /** @class */ (function () {
                             entityId = this.getEntityId();
                         }
                         params = [
+                            metaInstance_1.metaInstance.getSchemasJson(this.constructor),
                             entityId,
                             this.isNew,
                             tableName,
@@ -491,9 +492,14 @@ var BaseEntity = /** @class */ (function () {
                     case 2:
                         commandResult = _e.sent();
                         saveResult = JSON.parse(commandResult);
-                        if (saveResult.error) {
-                            throw new RedisOrmEntityError_1.RedisOrmEntityError(saveResult.error);
-                        }
+                        if (!saveResult.error) return [3 /*break*/, 5];
+                        if (!(saveResult.error === "Invalid Schemas")) return [3 /*break*/, 4];
+                        return [4 /*yield*/, metaInstance_1.metaInstance.compareSchemas(this.constructor)];
+                    case 3:
+                        schemaErrors = _e.sent();
+                        throw new RedisOrmSchemaError_1.RedisOrmSchemaError(saveResult.error, schemaErrors);
+                    case 4: throw new RedisOrmEntityError_1.RedisOrmEntityError(saveResult.error);
+                    case 5:
                         // update storage strings
                         Object.assign(this._storageStrings, changes);
                         // if we do not have id and it's auto increment

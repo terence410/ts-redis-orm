@@ -29,6 +29,7 @@ export declare class Query<T extends typeof BaseEntity> {
     max(column: IArgColumn<T>): Promise<number | IAggregateObject>;
     sum(column: IArgColumn<T>): Promise<number | IAggregateObject>;
     avg(column: IArgColumn<T>): Promise<number | IAggregateObject>;
+    rank(column: IArgColumn<T>, idObject: IIdObject<InstanceType<T>>, isReverse?: boolean): Promise<number>;
     private _get;
     private _getSimple;
     private _aggregate;

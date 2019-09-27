@@ -1,9 +1,10 @@
 import {entityExporter} from "./entityExporter";
 import {RedisOrmEntityError} from "./errors/RedisOrmEntityError";
+import {RedisOrmSchemaError} from "./errors/RedisOrmSchemaError";
 import {metaInstance} from "./metaInstance";
 import {parser} from "./parser";
 import {Query} from "./Query";
-import {IArgColumn, IArgValues, IInstanceValues, IIdObject, ISaveResult} from "./types";
+import {IArgColumn, IArgValues, IIdObject, IInstanceValues, ISaveResult} from "./types";
 
 export class BaseEntity {
     // region static methods
@@ -51,25 +52,29 @@ export class BaseEntity {
         return await metaInstance.getRedis(this, false);
     }
 
-    public static async resyncSchemas<T extends typeof BaseEntity>(this: T) {
-        const redis = await metaInstance.resyncSchema(this);
-    }
-
-   public static async rebuildIndex<T extends typeof BaseEntity>(this: T, column: IArgColumn<T>) {
+    public static async resyncDb<T extends typeof BaseEntity>(this: T) {
+        // get redis,
         const redis = await metaInstance.getRedis(this);
+        const remoteSchemas = await metaInstance.getRemoteSchemas(this, redis);
 
-        if (!metaInstance.isIndexKey(this, column as string)) {
-            throw new RedisOrmEntityError(`Column: ${column} is not a valid index`);
+        // we resync only if we found any schema exist
+        if (remoteSchemas) {
+            // prepare arguments
+            const tableName = metaInstance.getTable(this);
+            const keys: [] = [];
+            const params = [
+                metaInstance.getSchemasJson(this),
+                tableName,
+            ];
+
+            // remove everything
+            const commandResult = await (redis as any).commandAtomicResyncDb(keys, params);
+            const saveResult = JSON.parse(commandResult) as ISaveResult;
+
+            if (saveResult.error) {
+                throw new RedisOrmEntityError(saveResult.error);
+            }
         }
-
-        // prepare arguments
-        const tableName = metaInstance.getTable(this);
-        const keys = [
-            tableName,
-            column,
-        ];
-
-        return await (redis as any).commandAtomicRebuildIndex(keys);
     }
 
     public static async truncate(className: string) {
@@ -77,21 +82,22 @@ export class BaseEntity {
             throw new RedisOrmEntityError("You need to provide the class name for truncate");
         }
 
+        // get redis,
         const redis = await metaInstance.getRedis(this);
+        const remoteSchemas = await metaInstance.getRemoteSchemas(this, redis);
 
-        // prepare arguments
-        const indexKeys = metaInstance.getIndexKeys(this);
-        const uniqueKeys = metaInstance.getUniqueKeys(this);
-        const tableName = metaInstance.getTable(this);
+        // we truncate only if we found any schema exist
+        if (remoteSchemas) {
+            // prepare arguments
+            const tableName = metaInstance.getTable(this);
+            const keys: [] = [];
+            const params = [
+                tableName,
+            ];
 
-        const keys: [] = [];
-        const params = [
-            tableName,
-            JSON.stringify(indexKeys),
-            JSON.stringify(uniqueKeys),
-        ];
-
-        await (redis as any).commandAtomicTruncate(keys, params);
+            // remove everything
+            await (redis as any).commandAtomicTruncate(keys, params);
+        }
     }
 
     // endregion
@@ -350,6 +356,7 @@ export class BaseEntity {
 
         // prepare argument
         const params = [
+            metaInstance.getSchemasJson(this.constructor),
             entityId,
             this.isNew,
             tableName,
@@ -366,7 +373,12 @@ export class BaseEntity {
         const saveResult = JSON.parse(commandResult) as ISaveResult;
 
         if (saveResult.error) {
-            throw new RedisOrmEntityError(saveResult.error);
+            if (saveResult.error === "Invalid Schemas") {
+                const schemaErrors = await metaInstance.compareSchemas(this.constructor);
+                throw new RedisOrmSchemaError(saveResult.error, schemaErrors);
+            } else {
+                throw new RedisOrmEntityError(saveResult.error);
+            }
         }
 
         // update storage strings

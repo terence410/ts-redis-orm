@@ -100,6 +100,7 @@ describe("Speed Test", () => {
 
 describe("Clean up", () => {
     it("truncate", async () => {
+        console.log("truncate after");
         await TestingSpeed.truncate("TestingSpeed");
     });
 });

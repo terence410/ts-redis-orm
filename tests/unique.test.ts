@@ -52,10 +52,10 @@ describe("Unique Test", () => {
         assert.isUndefined(newEntity);
 
         newEntity = await TestingUnique.query().onlyDeleted().findUnique("uniqueNumber", uniqueNumber);
-        assert.isDefined(newEntity);
+        assert.isUndefined(newEntity);
 
         newEntity = await TestingUnique.query().onlyDeleted().findUnique("uniqueString", uniqueString);
-        assert.isDefined(newEntity);
+        assert.isUndefined(newEntity);
     });
 
     it("create entity: forceDelete", async () => {

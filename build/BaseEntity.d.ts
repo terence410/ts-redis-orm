@@ -1,6 +1,6 @@
 /// <reference types="ioredis" />
 import { Query } from "./Query";
-import { IArgColumn, IArgValues, IInstanceValues, IIdObject } from "./types";
+import { IArgValues, IIdObject, IInstanceValues } from "./types";
 export declare class BaseEntity {
     static connect(): Promise<import("ioredis").Redis>;
     static newFromStorageStrings<T extends typeof BaseEntity>(this: T, storageStrings: {
@@ -13,8 +13,7 @@ export declare class BaseEntity {
     static all<T extends typeof BaseEntity>(this: T): Promise<Array<InstanceType<T>>>;
     static count(): Promise<number>;
     static getRedis(): Promise<import("ioredis").Redis>;
-    static resyncSchemas<T extends typeof BaseEntity>(this: T): Promise<void>;
-    static rebuildIndex<T extends typeof BaseEntity>(this: T, column: IArgColumn<T>): Promise<any>;
+    static resyncDb<T extends typeof BaseEntity>(this: T): Promise<void>;
     static truncate(className: string): Promise<void>;
     static export(file: string): Promise<void>;
     static exportEntities<T extends BaseEntity>(entities: T[], file: string): Promise<void>;
