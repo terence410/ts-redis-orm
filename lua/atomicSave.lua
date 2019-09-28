@@ -85,21 +85,31 @@ else
     if isnotempty(autoIncrementKey) and isNew == "true" then
         local hash = "autoIncrement";
         local currMetaStorageKey = metaStorageKey(tableName)
+        local autoIncrementValue = redis.call("HGET", currMetaStorageKey, hash)
+
+        -- set a default to 0 for auto increment
+        if autoIncrementValue == false then
+            autoIncrementValue = 0
+            redis.call("HSET", currMetaStorageKey, hash, tonumber(autoIncrementValue))
+        end
 
         if isempty(entityId) or tonumber(entityId) == 0 then
-            local autoIncrementKeyValue = redis.call("hincrby", currMetaStorageKey, hash, 1);
-            entityId = tostring(autoIncrementKeyValue)
+            autoIncrementValue = redis.call("HINCRBY", currMetaStorageKey, hash, 1);
+            entityId = tostring(autoIncrementValue)
             changes[autoIncrementKey] = entityId
             result["entityId"] = entityId
-            result["autoIncrementKeyValue"] = autoIncrementKeyValue
+            result["autoIncrementKeyValue"] = autoIncrementValue
 
             -- update the storage key
             currEntityStorageKey = entityStorageKey(tableName, entityId)
+
+        elseif tonumber(entityId) == nil then
+            -- entityId is not empty, but also not a number
+            return error("Entity Id: " .. entityId .. " is not a number for auto increment column")
         else
             -- if entity id is larger than the increment Key, we have to update it
-            local autoIncrementValue = redis.call("HGET", currMetaStorageKey, hash)
-            if tonumber(autoIncrementValue) == nil or tonumber(entityId) > tonumber(autoIncrementValue) then
-                redis.call("hset", currMetaStorageKey, hash, tonumber(entityId))
+            if tonumber(entityId) > tonumber(autoIncrementValue) then
+                redis.call("HSET", currMetaStorageKey, hash, tonumber(entityId))
             end
         end
     end
@@ -109,7 +119,7 @@ else
     if isNew == "true" then
         -- check if entity id is empty
         if isempty(entityId) then
-            return error("Invalid Entity Id")
+            return error("Entity Id is empty")
         end
 
         -- check model exist for new

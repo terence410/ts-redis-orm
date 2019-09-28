@@ -346,7 +346,7 @@ export class BaseEntity {
         const autoIncrementKey = metaInstance.getAutoIncrementKey(this.constructor);
         let entityId = "";
 
-        // we must for a new entity for the case
+        // we must assign an entity id for the following case
         // - if it's not new
         // - if it's not auto increment
         // - if the auto increment key is not 0

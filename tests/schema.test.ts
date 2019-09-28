@@ -197,6 +197,6 @@ describe("Schema Test", () => {
 
 describe("Clean up", () => {
     it("truncate", async () => {
-        // await TestingSchema1.truncate("TestingSchema1");
+        await TestingSchema1.truncate("TestingSchema1");
     });
 });

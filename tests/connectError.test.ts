@@ -25,7 +25,8 @@ describe("Connect Error Test", () => {
         // suppress connection error
         const redis = await TestingErrorConnection.getRedis();
         redis.on("error", (err) => {
-            assert.equal(err.message, "connect ETIMEDOUT");
+            assert.isTrue(err.message.startsWith("connect ETIMEDOUT") ||
+                err.message.startsWith("connect ECONNREFUSED"));
             hasConnectionError = true;
         });
 
