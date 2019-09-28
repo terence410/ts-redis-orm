@@ -153,7 +153,7 @@ if #indexKeys > 0 then
         -- if the changes has set value
         if table.hasKey(changes, indexKey) then
             local newValue = tonumber(changes[indexKey])
-            if newValue ~= nil then
+            if newValue ~= nil and indexKey ~= "deletedAt" then
                 redis.call("ZADD", indexStorageKey(tableName, indexKey), newValue, entityId)
             else
                 redis.call("ZREM", indexStorageKey(tableName, indexKey), entityId)
