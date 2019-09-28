@@ -5,8 +5,8 @@ import {parser} from "./parser";
 import {
     IAggregateObject,
     IArgColumn,
-    IIndexOperator,
     IIdObject,
+    IIndexOperator,
     IOrder,
     IStringOperator,
     IUniqueValueType,

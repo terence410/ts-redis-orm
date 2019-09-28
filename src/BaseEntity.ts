@@ -4,7 +4,7 @@ import {RedisOrmSchemaError} from "./errors/RedisOrmSchemaError";
 import {metaInstance} from "./metaInstance";
 import {parser} from "./parser";
 import {Query} from "./Query";
-import {IArgColumn, IArgValues, IIdObject, IInstanceValues, ISaveResult} from "./types";
+import {IArgValues, IIdObject, IInstanceValues, ISaveResult} from "./types";
 
 export class BaseEntity {
     // region static methods

@@ -4,13 +4,11 @@ import * as path from "path";
 import {configLoader} from "./configLoader";
 import {RedisOrmDecoratorError} from "./errors/RedisOrmDecoratorError";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
-import {RedisOrmSchemaError} from "./errors/RedisOrmSchemaError";
 import {IEntityMeta, IRedisContainer, ISchema} from "./types";
 
 const IOREDIS_ERROR_RETRY_DELAY = 1000;
 const IOREDIS_CONNECT_TIMEOUT = 10000;
 const IOREDIS_REIGSTER_LUA_DELAY = 100;
-const CONFIG_FILE = "redisorm.default.json";
 
 class MetaInstance {
     private _entityMetas = new Map<object, IEntityMeta>();
@@ -209,20 +207,6 @@ class MetaInstance {
 
         if (registerRedis) {
             await this._registerRedis(target, redisContainer);
-
-            // if (checkSchemaError) {
-            //     if (redisContainer.schemaErrors.length > 0) {
-            //         throw new RedisOrmSchemaError(
-            //             `Schema Error. Please check err.errors for details. ` +
-            //             `You can use resyncSchema() to resync the latest schema to remote host.`,
-            //             redisContainer.schemaErrors);
-            //     }
-            //
-            //     // throw the error repeatly for anything happened inside connectRedis
-            //     if (redisContainer.error) {
-            //         throw redisContainer.error;
-            //     }
-            // }
         }
 
         return redisContainer.redis;
