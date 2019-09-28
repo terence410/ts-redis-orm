@@ -13,14 +13,14 @@ class TestingRank extends BaseEntity {
     public index: number = 0;
 }
 
-describe("Unique Test", () => {
+describe("Rank Test", () => {
     const total = 1000;
 
     it("truncate", async () => {
         await TestingRank.truncate("TestingRank");
     });
 
-    it("create entity", async () => {
+    it("create entity and check rank", async () => {
         for (let i = 0; i < total; i++) {
             const entity = new TestingRank();
             entity.stringId = "a";
