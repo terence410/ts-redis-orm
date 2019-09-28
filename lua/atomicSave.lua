@@ -156,9 +156,9 @@ if #indexKeys > 0 then
 
             if indexKey == "deletedAt" then
                 if newValue ~= nil then
-                    return error("deletedAt ~= nil: " .. changes[indexKey] .. ", " .. tostring(newValue))
+                    return error("deletedAt ~= nil: " .. changes[indexKey] .. ", " .. tostring(newValue) .. ", " .. type(newValue))
                 else
-                    return error("deletedAt == nil: " .. changes[indexKey] .. ", " .. tostring(newValue))
+                    return error("deletedAt == nil: " .. changes[indexKey] .. ", " .. tostring(newValue) .. ", " .. type(newValue))
                 end
             end
 
