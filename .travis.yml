@@ -1,7 +1,7 @@
 language: node_js
 node_js:
   - "10"
- services:
+services:
   - redis-server
 deploy:
   provider: npm
