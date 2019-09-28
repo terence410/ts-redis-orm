@@ -25,7 +25,7 @@ local function isint(s)
 end
 
 local function isfinite(s)
-    return s ~= nil and s ~= math.nan
+    return s ~= nil and s ~= math.nan and tostring(s) ~= "nan"
 end
 
 local function entityStorageKey(tableName, id)
