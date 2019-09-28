@@ -24,8 +24,9 @@ local function isint(s)
     return s ~= nil and s == math.floor(s)
 end
 
-local function isfinite(s)
-    return s ~= nil and s ~= math.nan and tostring(s) ~= "nan"
+local function isnumeric(s)
+    local v = tonumber(s);
+    return v ~= nil and tostring(v) ~= "nan"
 end
 
 local function entityStorageKey(tableName, id)

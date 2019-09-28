@@ -72,7 +72,7 @@ if isRestore == "true" then
     if #indexKeys > 0 then
         for i, indexKey in pairs(indexKeys) do
             local value = redis.call("HGET", currEntityStorageKey, indexKey)
-            if tonumber(value) ~= nil then
+            if isnumeric(value) then
                 redis.call("ZADD", indexStorageKey(tableName, indexKey), value, entityId)
             end
         end
@@ -89,8 +89,8 @@ else
 
         -- set a default to 0 for auto increment
         if autoIncrementValue == false then
-            autoIncrementValue = 0
-            redis.call("HSET", currMetaStorageKey, hash, tonumber(autoIncrementValue))
+            autoIncrementValue = "0"
+            redis.call("HSET", currMetaStorageKey, hash, autoIncrementValue)
         end
 
         if isempty(entityId) or tonumber(entityId) == 0 then
@@ -103,13 +103,13 @@ else
             -- update the storage key
             currEntityStorageKey = entityStorageKey(tableName, entityId)
 
-        elseif tonumber(entityId) == nil then
+        elseif not isnumeric(entityId) then
             -- entityId is not empty, but also not a number
             return error("Entity Id: " .. entityId .. " is not a number for auto increment column")
         else
             -- if entity id is larger than the increment Key, we have to update it
             if tonumber(entityId) > tonumber(autoIncrementValue) then
-                redis.call("HSET", currMetaStorageKey, hash, tonumber(entityId))
+                redis.call("HSET", currMetaStorageKey, hash, entityId)
             end
         end
     end
@@ -152,9 +152,8 @@ if #indexKeys > 0 then
     for i, indexKey in pairs(indexKeys) do
         -- if the changes has set value
         if table.hasKey(changes, indexKey) then
-            local newValue = tonumber(changes[indexKey])
-
-            if isfinite(newValue) then
+            local newValue = changes[indexKey]
+            if isnumeric(newValue) then
                 redis.call("ZADD", indexStorageKey(tableName, indexKey), newValue, entityId)
             else
                 redis.call("ZREM", indexStorageKey(tableName, indexKey), entityId)

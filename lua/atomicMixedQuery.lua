@@ -91,13 +91,13 @@ local function finalOrderBy(ids, tableName, column, order, offset, limit)
   -- add value into temp table
   for i, id in ipairs(ids) do
     local currEntityStorageKey = entityStorageKey(tableName, id)
-    local columnValue = redis.call("HGET", currEntityStorageKey, column)
+    local value = redis.call("HGET", currEntityStorageKey, column)
 
-    if tonumber(columnValue) == nil then
-        columnValue = "-inf"
+    if not isnumeric(value) then
+        value = "-inf"
     end
 
-    redis.call("ZADD", currTempStorageKey, columnValue, id)
+    redis.call("ZADD", currTempStorageKey, value, id)
   end
 
   -- do sorting
@@ -161,8 +161,8 @@ local function whereSearch(ids, namespace, whereArgvs)
 end
 
 -- keys
-local indexCount = ARGV[1]
-local whereCount = ARGV[2]
+local indexCount = tonumber(ARGV[1])
+local whereCount = tonumber(ARGV[2])
 local offset = tonumber(ARGV[3])
 local limit = tonumber(ARGV[4])
 local tableName = ARGV[5]
@@ -218,7 +218,7 @@ end
 local ids = table.whereIndexIntersect(indexArr, indexTbls)
 
 -- do where search if needed
-if tonumber(whereCount) > 0 then
+if whereCount > 0 then
   local whereArgvs = {}
 
   for i = index, index + whereCount * 3 - 1, 3 do

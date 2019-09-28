@@ -95,7 +95,7 @@ describe("Speed Test", () => {
 
         const total = await TestingSpeed.count();
         assert.equal(total, batch * iterate);
-    });
+    }).timeout(1000 * 10);
 });
 
 describe("Clean up", () => {

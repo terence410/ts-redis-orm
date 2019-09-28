@@ -147,7 +147,7 @@ if #createIndexKeys > 0 then
                 -- remove any existing table
                 local currIndexStorageKey = indexStorageKey(tableName, indexKey)
                 local value = redis.call("HGET", currEntityStorageKey, indexKey)
-                if value ~= false and tonumber(value) ~= nil then
+                if isnumeric(value) then
                     redis.call("ZADD", currIndexStorageKey, value, entityId)
                 end
             end
