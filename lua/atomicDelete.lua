@@ -1,18 +1,27 @@
-local entityId = ARGV[1]
-local isSoftDelete = ARGV[2]
-local tableName = ARGV[3]
-local deletedAtTimestamp = ARGV[4]
-local indexKeys = cjson.decode(ARGV[5])
-local uniqueKeys = cjson.decode(ARGV[6])
+local clientSchemasString = ARGV[1]
+local entityId = ARGV[2]
+local isSoftDelete = ARGV[3]
+local tableName = ARGV[4]
+local deletedAtTimestamp = ARGV[5]
+local indexKeys = cjson.decode(ARGV[6])
+local uniqueKeys = cjson.decode(ARGV[7])
 local result = { entityId = entityId }
+
+-- verify schemas
+local isVerified = verifySchemas(tableName, clientSchemasString)
+if not isVerified then
+    return error("Invalid Schemas")
+end
 
 -- entity id key
 local currEntityStorageKey = entityStorageKey(tableName, entityId)
 
--- make sure model exist
-local exist = redis.call("EXISTS", currEntityStorageKey)
-if exist ~= 1 then
-    return error("Entity not exist: " .. entityId)
+-- check entity exist and the state
+local deletedAt = redis.call("HGET", currEntityStorageKey, "deletedAt")
+if deletedAt == false then
+    return error("Entity not exist. Entity Id: " .. entityId)
+elseif deletedAt ~= "NaN" and isSoftDelete == "true" then
+    return error("Entity already deleted. Entity Id: " .. entityId)
 end
 
 -- remove all indexes

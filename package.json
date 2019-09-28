@@ -1,6 +1,6 @@
 {
   "name": "ts-redis-orm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A full functional Redis Orm library written in Typescript.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -18,28 +18,32 @@
     "test-rank": "mocha --exit --timeout 10000 -r ts-node/register tests/rank.test.ts",
     "build": "tsc"
   },
-  "bin": {
-    "ts-redis-orm": "./build/cli.js"
-  },
   "dependencies": {
-    "ioredis": "^4.14.0",
-    "reflect-metadata":"^0.1.13"
+    "ioredis": "^4.14.1",
+    "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.0",
+    "@types/chai": "^4.2.3",
+    "@types/ioredis": "^4.0.18",
     "@types/mocha": "^5.2.7",
-    "@types/node": "^12.7.1",
-    "@types/ioredis": "^4.0.15",
+    "@types/node": "^12.7.8",
     "chai": "^4.2.0",
     "mocha": "^6.2.0",
-    "ts-node": "^8.3.0",
-    "typescript": "^3.5.3"
+    "ts-node": "^8.4.1",
+    "typescript": "^3.6.3"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/terence410/ts-redis-orm.git"
   },
   "author": "Terence",
-  "keywords": ["redis", "redis orm", "sorted set", "ioredis", "relational db", "typescript"],
+  "keywords": [
+    "redis",
+    "redis orm",
+    "sorted set",
+    "ioredis",
+    "relational db",
+    "typescript"
+  ],
   "license": "MIT License"
 }

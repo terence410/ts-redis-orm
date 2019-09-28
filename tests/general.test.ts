@@ -316,6 +316,51 @@ describe("General Test: Create Entity", () => {
         assert.deepEqual(entities.map(x => x.id), ids.reverse().slice(1, 3));
     });
 
+    it("save an deleted entity", async () => {
+        const id = 21;
+        const entity = TestingGeneral.create({id, uniqueNumber: id, number: id});
+        await entity.save();
+
+        const newEntity = await TestingGeneral.find(id);
+        assert.isDefined(newEntity);
+
+        // delete entity
+        if (newEntity) {
+            await newEntity.delete();
+            assert.isTrue(newEntity.isDeleted);
+        }
+
+        // save an deleted entity
+        try {
+            entity.string2 = "happy";
+            await entity.save();
+            assert.isTrue(false);
+        } catch (err) {
+            assert.equal(err.message, `Entity not exist or deleted. Entity Id: ${entity.getEntityId()}`);
+        }
+
+        // delete an deleted entity
+        try {
+            await entity.delete();
+            assert.isTrue(false);
+        } catch (err) {
+            assert.equal(err.message, `Entity already deleted. Entity Id: ${entity.getEntityId()}`);
+        }
+
+        // force delete the entity
+        if (newEntity) {
+            await newEntity.forceDelete();
+        }
+
+        // delete an force deleted entity
+        try {
+            await entity.delete();
+            assert.isTrue(false);
+        } catch (err) {
+            assert.equal(err.message, `Entity not exist. Entity Id: ${entity.getEntityId()}`);
+        }
+    });
+
     it("create entity: massive create", async () => {
         const totalEntity = 100;
         const promises: Array<Promise<any>> = [];

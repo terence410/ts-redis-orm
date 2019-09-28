@@ -430,6 +430,7 @@ export class BaseEntity {
 
         const keys: [] = [];
         const params = [
+            metaInstance.getSchemasJson(this.constructor),
             entityId,
             !forceDelete,
             tableName,

@@ -9,7 +9,7 @@ It is designed to preserve the performance of Redis, but extending all of the us
 
 Due to design limitation, the package doesn't work with Redis Cluster. 
 
-This package is mainly built on top of [ioredis](https://github.com/luin/ioredis). 
+This package is mainly built on top of [ioredis](https://github.com/luin/ioredis) and tested with Redis 3, 4 and 5.
 
 # Features
 - Simple class structure using typescript decorator. (Very similar to [type-orm](https://www.npmjs.com/package/typeorm))
