@@ -20,6 +20,14 @@ local function isnotempty(s)
     return s ~= nil and s ~= ""
 end
 
+local function isint(s)
+    return s ~= nil and s == math.floor(s)
+end
+
+local function isfinite(s)
+    return s ~= nil and s ~= math.nan
+end
+
 local function entityStorageKey(tableName, id)
     return "entity:" .. tableName .. ":" .. id
 end

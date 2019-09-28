@@ -154,15 +154,7 @@ if #indexKeys > 0 then
         if table.hasKey(changes, indexKey) then
             local newValue = tonumber(changes[indexKey])
 
-            if indexKey == "deletedAt" then
-                if newValue ~= nil then
-                    return error("deletedAt ~= nil: " .. changes[indexKey] .. ", " .. tostring(newValue) .. ", " .. tostring(tonumber("abc")) .. ", " .. tostring(tonumber("nan")))
-                else
-                    return error("deletedAt == nil: " .. changes[indexKey] .. ", " .. tostring(newValue) .. ", " .. tostring(tonumber("abc")) .. ", " .. tostring(tonumber("nan")))
-                end
-            end
-
-            if newValue ~= nil then
+            if isfinite(newValue) then
                 redis.call("ZADD", indexStorageKey(tableName, indexKey), newValue, entityId)
             else
                 redis.call("ZREM", indexStorageKey(tableName, indexKey), entityId)
