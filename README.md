@@ -1,13 +1,15 @@
 # Redis ORM (Typescript)
 
-[ts-redis-orm](https://www.npmjs.com/package/reflect-metadata) targets to provide relational DB features to Redis Lover. 
+[![NPM version](https://badge.fury.io/js/ts-redis-orm.png)](https://www.npmjs.com/package/ts-redis-orm)
+
+[ts-redis-orm](https://www.npmjs.com/package/ts-redis-orm) targets to provide relational DB features to Redis Lover. 
 
 It is designed to preserve the performance of Redis, but extending all of the useful features that you found useful in relational DB such as 
 (multiple index, primary keys, unique keys, auto increment, aggregate, soft delete, etc..)
 
 Due to design limitation, the package doesn't work with Redis Cluster. 
 
-This package is mainly built on top of [ioredis](https://github.com/luin/ioredis]). 
+This package is mainly built on top of [ioredis](https://github.com/luin/ioredis). 
 
 # Features
 - Simple class structure using typescript decorator. (Very similar to [type-orm](https://www.npmjs.com/package/typeorm))
