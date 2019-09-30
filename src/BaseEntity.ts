@@ -118,8 +118,8 @@ export class BaseEntity {
         //
     }
 
-    public static async import(file: string) {
-        await entityExporter.import(this, file);
+    public static async import(file: string, skipSchemasCheck: boolean = false) {
+        await entityExporter.import(this, file, skipSchemasCheck);
     }
 
     // endregion
@@ -256,19 +256,19 @@ export class BaseEntity {
     }
 
     public async save() {
-        await this._saveInternal();
+        return await this._saveInternal();
     }
 
     public async delete() {
-        await this._deleteInternal({forceDelete: false});
+        return await this._deleteInternal({forceDelete: false});
     }
 
     public async forceDelete() {
-        await this._deleteInternal({forceDelete: true});
+        return await this._deleteInternal({forceDelete: true});
     }
 
     public async restore() {
-        await this._saveInternal({isRestore: true});
+        return await this._saveInternal({isRestore: true});
     }
 
     public clone(): this {
@@ -327,7 +327,7 @@ export class BaseEntity {
         if (Object.keys(changes).length === 0) {
             // no changes and no increments, no need to save
             if (!isRestore && Object.keys(this._increments).length === 0) {
-                return;
+                return this;
             }
         }
 
@@ -402,6 +402,8 @@ export class BaseEntity {
 
         // update the flags
         this._isNew = false;
+
+        return this;
     }
 
     private async _deleteInternal({forceDelete = false} = {}) {
@@ -450,6 +452,8 @@ export class BaseEntity {
 
         // update deleted At
         this._set("deletedAt", deletedAt, true);
+
+        return this;
     }
 
     private _getChanges(): { [key: string]: string } {

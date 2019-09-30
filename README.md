@@ -165,6 +165,7 @@ const main = async () => {
     // export / import
     await MyEntity.export("path");
     await MyEntity.import("path");
+    await MyEntity.import("path", true); // skip schemas check 
     
     // errors
     try {
@@ -239,3 +240,5 @@ await entity.save();
   - boolean: false
   - Array: undefined
   - Object: undefined
+  
+

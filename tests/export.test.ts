@@ -28,14 +28,21 @@ class TestingExport extends BaseEntity {
     public object: any;
 }
 
+@Entity({connection: "default", table: "testing_new_export"})
+class TestingNewExport extends BaseEntity {
+    @Column({primary: true, autoIncrement: true})
+    public id: number = 0;
+}
+
 describe("Export Test", () => {
     const totalEntity = 100;
-    const exportFile1 = "./tests/exports/importExportTest1.txt";
+    const exportFile = "./tests/exports/exportTest.txt";
     let allExist: TestingExport[] = [];
     let allDeleted: TestingExport[] = [];
 
     it("truncate", async () => {
         await TestingExport.truncate("TestingExport");
+        await TestingNewExport.truncate("TestingNewExport");
     });
 
     it("add / delete entities", async () => {
@@ -68,9 +75,9 @@ describe("Export Test", () => {
     });
 
     it("export and import from file", async () => {
-        await TestingExport.export(exportFile1);
+        await TestingExport.export(exportFile);
         await TestingExport.truncate("TestingExport");
-        await TestingExport.import(exportFile1);
+        await TestingExport.import(exportFile);
 
         const currentAllExist = await TestingExport.all();
         const currentAllDeleted = await TestingExport.query().onlyDeleted().get();
@@ -93,10 +100,26 @@ describe("Export Test", () => {
         await entity.save();
         assert.equal(entity.id, totalEntity + 1);
     });
+
+    it("import into another db", async () => {
+        try {
+            await TestingNewExport.import(exportFile);
+            assert.isTrue(false);
+        } catch (err) {
+            assert.equal(err.message, 
+                "Class name: TestingNewExport does not match with the import file: TestingExport");
+        }
+        
+        // by pass schemas eheck
+        await TestingNewExport.import(exportFile, true);
+        const count = await TestingNewExport.count();
+        assert.equal(count, totalEntity / 2);
+    });
 });
 
 describe("Clean up", () => {
     it("truncate", async () => {
         await TestingExport.truncate("TestingExport");
+        await TestingNewExport.truncate("TestingNewExport");
     });
 });

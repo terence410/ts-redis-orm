@@ -13,7 +13,7 @@ class EntityExporter {
                 createdAt: new Date(),
                 class: (entityType as any).name,
                 table: metaInstance.getTable(entityType),
-                schemas: metaInstance.getSchemas(entityType),
+                schemas: metaInstance.getSchemasJson(entityType),
                 total: entities.length,
             };
             writeStream.write(JSON.stringify(meta, schemaJsonReplacer) + "\r\n");
@@ -35,7 +35,7 @@ class EntityExporter {
         });
     }
 
-    public async import(entityType: object, file: string) {
+    public async import(entityType: object, file: string, skipSchemasCheck: boolean = false) {
         const readStream = fs.createReadStream(file, {encoding: "utf8"});
         const r1 = readline.createInterface({input: readStream});
 
@@ -122,6 +122,22 @@ class EntityExporter {
                         err.message = `data: ${data}\r\n` + err.message;
                         currentError = err;
                         checkError();
+                    }
+
+                    if (!skipSchemasCheck) {
+                        const className = (entityType as any).name;
+                        const clientSchemas = metaInstance.getSchemasJson(entityType);
+                        if (meta.class !== className) {
+                            const err = new Error();
+                            err.message = `Class name: ${className} does not match with the import file: ${meta.class}`;
+                            currentError = err;
+                            checkError();
+                        } else if (meta.schemas !== clientSchemas) {
+                            const err = new Error();
+                            err.message = `Current Schemas: ${clientSchemas} does not match with the import file: ${meta.schemas}`;
+                            currentError = err;
+                            checkError();
+                        }
                     }
 
                 } else {
