@@ -76,6 +76,14 @@ describe("Schema Test", () => {
         const entity1 = new TestingSchema1();
         await entity1.save();
 
+        // connect will check schemas
+        try {
+            await TestingSchema2.connect();
+            assert.isTrue(false);
+        } catch (err) {
+            assert.isTrue(err instanceof RedisOrmSchemaError);
+        }
+
         try {
             const entity2 = new TestingSchema2();
             entity2.id = -1;

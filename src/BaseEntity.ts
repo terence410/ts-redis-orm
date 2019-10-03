@@ -11,7 +11,15 @@ export class BaseEntity {
 
     public static async connect() {
         // this will init connection
-        return await metaInstance.getRedis(this);
+        const redis = await metaInstance.getRedis(this);
+
+        // validate the schema
+        const schemaErrors = await metaInstance.compareSchemas(this);
+        if (schemaErrors.length) {
+            throw new RedisOrmSchemaError("Invalid Schemas", schemaErrors);
+        }
+
+        return redis;
     }
 
     public static newFromStorageStrings<T extends typeof BaseEntity>(

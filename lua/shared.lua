@@ -49,7 +49,6 @@ local function tempStorageKey(tableName, column)
     return "temp:" .. tableName .. ":" .. column
 end
 
-
 local function remoteSchemas(tableName)
     local currMetaStorageKey = metaStorageKey(tableName)
     local remoteSchemas = redis.call("HGET", currMetaStorageKey, "schemas")
@@ -64,7 +63,6 @@ end
 local function verifySchemas(tableName, clientSchemasString)
     local currMetaStorageKey = metaStorageKey(tableName)
     local remoteSchemas = redis.call("HGET", currMetaStorageKey, "schemas")
-
     if remoteSchemas == false then
         redis.call("HSET", currMetaStorageKey, "schemas", clientSchemasString)
         return true
@@ -122,7 +120,6 @@ function table.flattern(dict)
     return tbl
 end
 
-
 function table.keys( tbl )
     local arr = {}
     for key, val in pairs( tbl ) do
@@ -141,7 +138,6 @@ end
 
 function table.whereIndexIntersect(indexArr, tbls)
     if #tbls < 1 then return indexArr end
-
     local tblParis = ipairs(tbls)
     for i, v in pairs(indexArr) do
         for ii, _ in ipairs(tbls) do
@@ -150,11 +146,9 @@ function table.whereIndexIntersect(indexArr, tbls)
             end
         end
     end
-
     -- this indexArr will become non iterable table, convert it back to array
     return table.values(indexArr)
 end
-
 
 -- others
 local formatFn = {
@@ -197,11 +191,9 @@ local function dateFormat(time, format)
         dates["y"] = c
         dates["m"] = e
         dates["d"] = f
-
         local result = string.gsub(format, "%%[%a%%\\b\\f]", function(x) local f = formatFn[x]; return (f and f(dates) or x) end)
         return result
     end
-
     return ""
 end
 
