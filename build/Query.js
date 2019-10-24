@@ -1,9 +1,10 @@
 "use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
@@ -34,10 +35,17 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __spreadArrays = (this && this.__spreadArrays) || function () {
+    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
+    for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+            r[k] = a[j];
+    return r;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var RedisOrmQueryError_1 = require("./errors/RedisOrmQueryError");
-var metaInstance_1 = require("./metaInstance");
 var parser_1 = require("./parser");
+var serviceInstance_1 = require("./serviceInstance");
 var Query = /** @class */ (function () {
     function Query(_entityType) {
         this._entityType = _entityType;
@@ -53,19 +61,20 @@ var Query = /** @class */ (function () {
     // region find
     Query.prototype.find = function (idObject) {
         return __awaiter(this, void 0, void 0, function () {
-            var redis, entityId, primaryKeys, entityStorageKey, storageStrings_1;
+            var entityId, primaryKeys, entityStorageKey, redis, storageStrings_1;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, this._getRedis()];
+                    case 0:
+                        entityId = serviceInstance_1.serviceInstance.convertAsEntityId(this._entityType, idObject);
+                        primaryKeys = serviceInstance_1.serviceInstance.getPrimaryKeys(this._entityType);
+                        if (!entityId) return [3 /*break*/, 3];
+                        entityStorageKey = serviceInstance_1.serviceInstance.getEntityStorageKey(this._entityType, entityId);
+                        if (!entityStorageKey) {
+                            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid id " + JSON.stringify(idObject));
+                        }
+                        return [4 /*yield*/, this._getRedis()];
                     case 1:
                         redis = _a.sent();
-                        entityId = metaInstance_1.metaInstance.convertAsEntityId(this._entityType, idObject);
-                        primaryKeys = metaInstance_1.metaInstance.getPrimaryKeys(this._entityType);
-                        if (!entityId) return [3 /*break*/, 3];
-                        entityStorageKey = metaInstance_1.metaInstance.getEntityStorageKey(this._entityType, entityId);
-                        if (!entityStorageKey) {
-                            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid id " + JSON.stringify(idObject));
-                        }
                         return [4 /*yield*/, redis.hgetall(entityStorageKey)];
                     case 2:
                         storageStrings_1 = _a.sent();
@@ -105,13 +114,13 @@ var Query = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!metaInstance_1.metaInstance.isUniqueKey(this._entityType, column)) {
-                            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid unique column: " + column);
+                        if (!serviceInstance_1.serviceInstance.isUniqueKey(this._entityType, column)) {
+                            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid unique column: " + column);
                         }
                         return [4 /*yield*/, this._getRedis()];
                     case 1:
                         redis = _a.sent();
-                        return [4 /*yield*/, redis.hget(metaInstance_1.metaInstance.getUniqueStorageKey(this._entityType, column), value.toString())];
+                        return [4 /*yield*/, redis.hget(serviceInstance_1.serviceInstance.getUniqueStorageKey(this._entityType, column), value.toString())];
                     case 2:
                         id = _a.sent();
                         if (!id) return [3 /*break*/, 4];
@@ -168,16 +177,16 @@ var Query = /** @class */ (function () {
     };
     Query.prototype.where = function (column, operator, value) {
         var columnString = column;
-        if (metaInstance_1.metaInstance.isIndexKey(this._entityType, columnString)) {
+        if (serviceInstance_1.serviceInstance.isIndexKey(this._entityType, columnString)) {
             if (this._onlyDeleted) {
-                throw new RedisOrmQueryError_1.RedisOrmQueryError("You cannot apply extra where indexing clause for only deleted query");
+                throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") You cannot apply extra where indexing clause for only deleted query");
             }
-            if (!metaInstance_1.metaInstance.isIndexKey(this._entityType, columnString)) {
-                throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid index column: " + column);
+            if (!serviceInstance_1.serviceInstance.isIndexKey(this._entityType, columnString)) {
+                throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid index column: " + column);
             }
             // convert value into string value
             if (value !== "-inf" && value !== "+inf") {
-                var schema = metaInstance_1.metaInstance.getSchema(this._entityType, columnString);
+                var schema = serviceInstance_1.serviceInstance.getSchema(this._entityType, columnString);
                 value = parser_1.parser.parseValueToStorageString(schema.type, value);
             }
             var whereIndexType = { min: "-inf", max: "+inf" };
@@ -202,27 +211,27 @@ var Query = /** @class */ (function () {
                     whereIndexType.max = "(" + value;
                     break;
                 default:
-                    throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid operator (" + operator + ") for index column: " + column);
+                    throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid operator (" + operator + ") for index column: " + column);
             }
             this._whereIndexes[columnString] = whereIndexType;
         }
-        else if (metaInstance_1.metaInstance.isSearchableColumn(this._entityType, columnString)) {
+        else if (serviceInstance_1.serviceInstance.isSearchableColumn(this._entityType, columnString)) {
             if (!["=", "!=", "like"].includes(operator)) {
-                throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid operator (" + operator + ") for non index column: " + column);
+                throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid operator (" + operator + ") for non index column: " + column);
             }
             // convert value into string value
-            var schema = metaInstance_1.metaInstance.getSchema(this._entityType, columnString);
+            var schema = serviceInstance_1.serviceInstance.getSchema(this._entityType, columnString);
             value = parser_1.parser.parseValueToStorageString(schema.type, value);
             this._whereSearches[columnString] = { operator: operator, value: value };
         }
         else {
-            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid search column: " + column);
+            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid search column: " + column);
         }
         return this;
     };
     Query.prototype.onlyDeleted = function () {
         if (Object.keys(this._whereIndexes).length > 0) {
-            throw new RedisOrmQueryError_1.RedisOrmQueryError("You cannot apply extra where indexing clause for only deleted query");
+            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") You cannot apply extra where indexing clause for only deleted query");
         }
         this.where("deletedAt", "<=", "+inf");
         this.where("deletedAt", ">=", "-inf");
@@ -231,10 +240,10 @@ var Query = /** @class */ (function () {
     };
     Query.prototype.sortBy = function (column, order) {
         if (this._sortBy !== null) {
-            throw new RedisOrmQueryError_1.RedisOrmQueryError("You can only order by 1 column");
+            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") You can only order by 1 column");
         }
-        if (!metaInstance_1.metaInstance.isSortableColumn(this._entityType, column)) {
-            throw new RedisOrmQueryError_1.RedisOrmQueryError("Not sortable Column: " + column + ". You can only sort column type of Number, Boolean or Date");
+        if (!serviceInstance_1.serviceInstance.isSortableColumn(this._entityType, column)) {
+            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Not sortable Column: " + column + ". You can only sort column type of Number, Boolean or Date");
         }
         this._sortBy = { column: column, order: order };
         return this;
@@ -254,10 +263,10 @@ var Query = /** @class */ (function () {
     };
     Query.prototype.groupBy = function (column) {
         if (this._groupByColumn !== null) {
-            throw new RedisOrmQueryError_1.RedisOrmQueryError("You can only group by 1 column");
+            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") You can only group by 1 column");
         }
-        if (!metaInstance_1.metaInstance.isValidColumn(this._entityType, column)) {
-            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid column: " + column);
+        if (!serviceInstance_1.serviceInstance.isValidColumn(this._entityType, column)) {
+            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid column: " + column);
         }
         this._groupByColumn = column;
         return this;
@@ -323,11 +332,11 @@ var Query = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!metaInstance_1.metaInstance.isIndexKey(this._entityType, column)) {
-                            throw new RedisOrmQueryError_1.RedisOrmQueryError("Invalid index column: " + column);
+                        if (!serviceInstance_1.serviceInstance.isIndexKey(this._entityType, column)) {
+                            throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Invalid index column: " + column);
                         }
-                        indexStorageKey = metaInstance_1.metaInstance.getIndexStorageKey(this._entityType, column);
-                        entityId = metaInstance_1.metaInstance.convertAsEntityId(this._entityType, idObject);
+                        indexStorageKey = serviceInstance_1.serviceInstance.getIndexStorageKey(this._entityType, column);
+                        entityId = serviceInstance_1.serviceInstance.convertAsEntityId(this._entityType, idObject);
                         if (!entityId) return [3 /*break*/, 6];
                         return [4 /*yield*/, this._getRedis()];
                     case 1:
@@ -377,7 +386,7 @@ var Query = /** @class */ (function () {
                             whereSearchKeys.length,
                             this._offset,
                             this._limit,
-                            metaInstance_1.metaInstance.getTable(this._entityType),
+                            serviceInstance_1.serviceInstance.getTable(this._entityType),
                             "",
                             "",
                             "",
@@ -423,20 +432,20 @@ var Query = /** @class */ (function () {
                         min = this._whereIndexes[column].min;
                         max = this._whereIndexes[column].max;
                         order = this._sortBy ? this._sortBy.order : "asc";
-                        indexStorageKey = metaInstance_1.metaInstance.getIndexStorageKey(this._entityType, column);
+                        indexStorageKey = serviceInstance_1.serviceInstance.getIndexStorageKey(this._entityType, column);
                         extraParams = ["LIMIT", this._offset.toString(), this._limit.toString()];
                         return [4 /*yield*/, this._getRedis()];
                     case 1:
                         redis = _a.sent();
                         ids = [];
                         if (!(order === "asc")) return [3 /*break*/, 3];
-                        return [4 /*yield*/, redis.zrangebyscore.apply(redis, [indexStorageKey, min, max].concat(extraParams))];
+                        return [4 /*yield*/, redis.zrangebyscore.apply(redis, __spreadArrays([indexStorageKey, min, max], extraParams))];
                     case 2:
                         ids = _a.sent();
                         return [3 /*break*/, 5];
                     case 3:
                         if (!(order === "desc")) return [3 /*break*/, 5];
-                        return [4 /*yield*/, redis.zrevrangebyscore.apply(redis, [indexStorageKey, max, min].concat(extraParams))];
+                        return [4 /*yield*/, redis.zrevrangebyscore.apply(redis, __spreadArrays([indexStorageKey, max, min], extraParams))];
                     case 4:
                         ids = _a.sent();
                         _a.label = 5;
@@ -453,8 +462,8 @@ var Query = /** @class */ (function () {
                 switch (_h.label) {
                     case 0:
                         if (aggregate !== "count") {
-                            if (!metaInstance_1.metaInstance.isNumberColumn(this._entityType, aggregateColumn)) {
-                                throw new RedisOrmQueryError_1.RedisOrmQueryError("Column: " + aggregateColumn + " is not in the type of number");
+                            if (!serviceInstance_1.serviceInstance.isNumberColumn(this._entityType, aggregateColumn)) {
+                                throw new RedisOrmQueryError_1.RedisOrmQueryError("(" + this._entityType.name + ") Column: " + aggregateColumn + " is not in the type of number");
                             }
                         }
                         whereIndexKeys = Object.keys(this._whereIndexes);
@@ -474,7 +483,7 @@ var Query = /** @class */ (function () {
                             whereSearchKeys.length,
                             this._limit,
                             this._offset,
-                            metaInstance_1.metaInstance.getTable(this._entityType),
+                            serviceInstance_1.serviceInstance.getTable(this._entityType),
                             aggregate,
                             aggregateColumn,
                             this._groupByColumn,
@@ -526,11 +535,11 @@ var Query = /** @class */ (function () {
                     case 1:
                         redis = _a.sent();
                         if (!(max === "+inf" && min === "-inf")) return [3 /*break*/, 3];
-                        return [4 /*yield*/, redis.zcard(metaInstance_1.metaInstance.getIndexStorageKey(this._entityType, column))];
+                        return [4 /*yield*/, redis.zcard(serviceInstance_1.serviceInstance.getIndexStorageKey(this._entityType, column))];
                     case 2:
                         count = _a.sent();
                         return [3 /*break*/, 5];
-                    case 3: return [4 /*yield*/, redis.zcount(metaInstance_1.metaInstance.getIndexStorageKey(this._entityType, column), min, max)];
+                    case 3: return [4 /*yield*/, redis.zcount(serviceInstance_1.serviceInstance.getIndexStorageKey(this._entityType, column), min, max)];
                     case 4:
                         count = _a.sent();
                         _a.label = 5;
@@ -543,7 +552,7 @@ var Query = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this._entityType)];
+                    case 0: return [4 /*yield*/, serviceInstance_1.serviceInstance.getRedis(this._entityType)];
                     case 1: return [2 /*return*/, _a.sent()];
                 }
             });

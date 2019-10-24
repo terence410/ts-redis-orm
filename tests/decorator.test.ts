@@ -11,7 +11,7 @@ describe("Decorator Test", () => {
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "AutoIncrement needs pair up with primary key");
+            assert.equal(err.message, "(TestingDecorator1) AutoIncrement needs pair up with primary key");
         }
     });
 
@@ -27,7 +27,7 @@ describe("Decorator Test", () => {
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "AutoIncrement already exist for column: id1");
+            assert.equal(err.message, "(TestingDecorator2) AutoIncrement already exist for column: id1");
         }
     });
 
@@ -43,7 +43,7 @@ describe("Decorator Test", () => {
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "AutoIncrement can only work with one primary key");
+            assert.equal(err.message, "(TestingDecorator3) AutoIncrement can only work with one primary key");
         }
     });
 
@@ -56,7 +56,7 @@ describe("Decorator Test", () => {
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "Primary key only supports String or Number");
+            assert.equal(err.message, "(TestingDecorator4) Primary key only supports String or Number");
         }
     });
 
@@ -72,7 +72,7 @@ describe("Decorator Test", () => {
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "Index only supports Number, Boolean or Date");
+            assert.equal(err.message, "(TestingDecorator5) Index only supports Number, Boolean or Date");
         }
     });
 
@@ -88,7 +88,7 @@ describe("Decorator Test", () => {
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "Unique only supports String or Number");
+            assert.equal(err.message, "(TestingDecorator6) Unique only supports String or Number");
         }
     });
 
@@ -101,7 +101,7 @@ describe("Decorator Test", () => {
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "No primary keys exist for this entity");
+            assert.equal(err.message, "(TestingDecorator7) No primary keys exist for this entity");
         }
     });
 });

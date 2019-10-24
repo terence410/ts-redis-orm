@@ -1,25 +1,23 @@
 import {entityExporter} from "./entityExporter";
 import {RedisOrmEntityError} from "./errors/RedisOrmEntityError";
 import {RedisOrmSchemaError} from "./errors/RedisOrmSchemaError";
-import {metaInstance} from "./metaInstance";
+import {eventEmitters} from "./eventEmitters";
 import {parser} from "./parser";
 import {Query} from "./Query";
-import {IArgValues, IIdObject, IInstanceValues, ISaveResult} from "./types";
+import {serviceInstance} from "./serviceInstance";
+import {IArgValues, IEvent, IIdObject, IInstanceValues, ISaveResult} from "./types";
 
 export class BaseEntity {
     // region static methods
 
     public static async connect() {
-        // this will init connection
-        const redis = await metaInstance.getRedis(this);
-
         // validate the schema
-        const schemaErrors = await metaInstance.compareSchemas(this);
+        const schemaErrors = await serviceInstance.compareSchemas(this);
         if (schemaErrors.length) {
-            throw new RedisOrmSchemaError("Invalid Schemas", schemaErrors);
+            throw new RedisOrmSchemaError(`(${this.name}) Invalid Schemas`, schemaErrors);
         }
 
-        return redis;
+        return await serviceInstance.getRedis(this);
     }
 
     public static newFromStorageStrings<T extends typeof BaseEntity>(
@@ -57,21 +55,21 @@ export class BaseEntity {
 
     // get the current redis instance, do not use internally
     public static async getRedis() {
-        return await metaInstance.getRedis(this, false);
+        return await serviceInstance.getRedis(this, false);
     }
 
     public static async resyncDb<T extends typeof BaseEntity>(this: T) {
         // get redis,
-        const redis = await metaInstance.getRedis(this);
-        const remoteSchemas = await metaInstance.getRemoteSchemas(this, redis);
+        const redis = await serviceInstance.getRedis(this);
+        const remoteSchemas = await serviceInstance.getRemoteSchemas(this, redis);
 
         // we resync only if we found any schema exist
         if (remoteSchemas) {
             // prepare arguments
-            const tableName = metaInstance.getTable(this);
+            const tableName = serviceInstance.getTable(this);
             const keys: [] = [];
             const params = [
-                metaInstance.getSchemasJson(this),
+                serviceInstance.getSchemasJson(this),
                 tableName,
             ];
 
@@ -80,24 +78,24 @@ export class BaseEntity {
             const saveResult = JSON.parse(commandResult) as ISaveResult;
 
             if (saveResult.error) {
-                throw new RedisOrmEntityError(saveResult.error);
+                throw new RedisOrmEntityError(`(${this.name}) ${saveResult.error}`);
             }
         }
     }
 
     public static async truncate(className: string) {
         if (className !== this.name) {
-            throw new RedisOrmEntityError("You need to provide the class name for truncate");
+            throw new RedisOrmEntityError(`(${this.name}) You need to provide the class name for truncate`);
         }
 
         // get redis,
-        const redis = await metaInstance.getRedis(this);
-        const remoteSchemas = await metaInstance.getRemoteSchemas(this, redis);
+        const redis = await serviceInstance.getRedis(this);
+        const remoteSchemas = await serviceInstance.getRemoteSchemas(this, redis);
 
         // we truncate only if we found any schema exist
         if (remoteSchemas) {
             // prepare arguments
-            const tableName = metaInstance.getTable(this);
+            const tableName = serviceInstance.getTable(this);
             const keys: [] = [];
             const params = [
                 tableName,
@@ -106,6 +104,10 @@ export class BaseEntity {
             // remove everything
             await (redis as any).commandAtomicTruncate(keys, params);
         }
+    }
+
+    public static getEventEmitter<T extends typeof BaseEntity>(this: T): IEvent<InstanceType<T>> {
+        return eventEmitters.getEventEmitter(this);
     }
 
     // endregion
@@ -197,7 +199,7 @@ export class BaseEntity {
     // region public methods
 
     public getEntityId(): string {
-        const primaryKeys = metaInstance.getPrimaryKeys(this.constructor).sort();
+        const primaryKeys = serviceInstance.getPrimaryKeys(this.constructor).sort();
         const values: string[] = [];
 
         for (const column of primaryKeys) {
@@ -206,17 +208,17 @@ export class BaseEntity {
                 if (value && Number.isInteger(value)) {
                     values.push(value.toString().replace(/:/g, ""));
                 } else {
-                    throw new RedisOrmEntityError(`Invalid number value: ${value} for primary key: ${column}`);
+                    throw new RedisOrmEntityError(`(${this.constructor.name}) Invalid number value: ${value} for primary key: ${column}`);
                 }
 
             } else if (typeof value === "string") {
                 if (value) {
                     values.push(value.replace(/:/g, ""));
                 } else {
-                    throw new RedisOrmEntityError(`Invalid string value: '${value}' for primary key: ${column}`);
+                    throw new RedisOrmEntityError(`(${this.constructor.name}) Invalid string value: '${value}' for primary key: ${column}`);
                 }
             } else {
-                throw new RedisOrmEntityError(`Invalid value: ${value} for primary key: ${column}`);
+                throw new RedisOrmEntityError(`(${this.constructor.name}) Invalid value: ${value} for primary key: ${column}`);
             }
         }
 
@@ -225,7 +227,7 @@ export class BaseEntity {
 
     public getValues<T extends BaseEntity>(this: T) {
         const values: any = {};
-        const columns = metaInstance.getColumns(this.constructor);
+        const columns = serviceInstance.getColumns(this.constructor);
         for (const column of columns) {
             values[column] = this._get(column);
         }
@@ -235,23 +237,23 @@ export class BaseEntity {
 
     public increment<T extends BaseEntity>(this: T, column: keyof T, value: number = 1) {
         if (this.isNew) {
-            throw new RedisOrmEntityError("You cannot increment a new entity");
+            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot increment a new entity`);
         }
 
-        if (metaInstance.isPrimaryKey(this.constructor, column as string)) {
-            throw new RedisOrmEntityError("You cannot increment primary key");
+        if (serviceInstance.isPrimaryKey(this.constructor, column as string)) {
+            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot increment primary key`);
         }
 
-        if (metaInstance.isUniqueKey(this.constructor, column as string)) {
-            throw new RedisOrmEntityError("You cannot increment unique key");
+        if (serviceInstance.isUniqueKey(this.constructor, column as string)) {
+            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot increment unique key`);
         }
 
-        if (!metaInstance.isNumberColumn(this.constructor, column as string)) {
-            throw new RedisOrmEntityError("Column need to be in the type of Number");
+        if (!serviceInstance.isNumberColumn(this.constructor, column as string)) {
+            throw new RedisOrmEntityError(`(${this.constructor.name}) Column need to be in the type of Number`);
         }
 
         if (!Number.isInteger(value)) {
-            throw new RedisOrmEntityError("Increment value need to be an integer");
+            throw new RedisOrmEntityError(`(${this.constructor.name}) Increment value need to be an integer`);
         }
 
         this._increments[column as string] = value;
@@ -285,6 +287,10 @@ export class BaseEntity {
         return entity;
     }
 
+    public toJSON() {
+        return this.getValues();
+    }
+
     // endregion
 
     // region protected methods
@@ -305,7 +311,7 @@ export class BaseEntity {
 
     private _get(column: string): any {
         if (!(column in this._values)) {
-            const schema = metaInstance.getSchema(this.constructor, column);
+            const schema = serviceInstance.getSchema(this.constructor, column);
             this._values[column] = parser.parseStorageStringToValue(schema.type, this._storageStrings[column]);
         }
 
@@ -313,7 +319,7 @@ export class BaseEntity {
     }
 
     private _set(column: string, value: any, updateStorageString = false) {
-        const schema = metaInstance.getSchema(this.constructor, column);
+        const schema = serviceInstance.getSchema(this.constructor, column);
         const storageString = parser.parseValueToStorageString(schema.type, value);
         this._values[column] = parser.parseStorageStringToValue(schema.type, storageString);
 
@@ -328,7 +334,7 @@ export class BaseEntity {
 
     private async _saveInternal({isRestore = false} = {}) {
         if (this.isDeleted && !isRestore) {
-            throw new RedisOrmEntityError("You cannot update a deleted entity");
+            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot update a deleted entity`);
         }
 
         const changes = this._getChanges();
@@ -348,10 +354,10 @@ export class BaseEntity {
         changes.deletedAt = parser.parseValueToStorageString(Date, new Date(Number.NaN));
 
         // prepare redis lua command parameters
-        const tableName = metaInstance.getTable(this.constructor);
-        const indexKeys = metaInstance.getIndexKeys(this.constructor);
-        const uniqueKeys = metaInstance.getUniqueKeys(this.constructor);
-        const autoIncrementKey = metaInstance.getAutoIncrementKey(this.constructor);
+        const tableName = serviceInstance.getTable(this.constructor);
+        const indexKeys = serviceInstance.getIndexKeys(this.constructor);
+        const uniqueKeys = serviceInstance.getUniqueKeys(this.constructor);
+        const autoIncrementKey = serviceInstance.getAutoIncrementKey(this.constructor);
         let entityId = "";
 
         // we must assign an entity id for the following case
@@ -364,7 +370,7 @@ export class BaseEntity {
 
         // prepare argument
         const params = [
-            metaInstance.getSchemasJson(this.constructor),
+            serviceInstance.getSchemasJson(this.constructor),
             entityId,
             this.isNew,
             tableName,
@@ -376,16 +382,16 @@ export class BaseEntity {
             isRestore,
         ];
 
-        const redis = await metaInstance.getRedis(this.constructor);
+        const redis = await serviceInstance.getRedis(this.constructor);
         const commandResult =  await (redis as any).commandAtomicSave([], params);
         const saveResult = JSON.parse(commandResult) as ISaveResult;
 
         if (saveResult.error) {
             if (saveResult.error === "Invalid Schemas") {
-                const schemaErrors = await metaInstance.compareSchemas(this.constructor);
-                throw new RedisOrmSchemaError(saveResult.error, schemaErrors);
+                const schemaErrors = await serviceInstance.compareSchemas(this.constructor);
+                throw new RedisOrmSchemaError(`(${this.constructor.name}) ${saveResult.error}`, schemaErrors);
             } else {
-                throw new RedisOrmEntityError(saveResult.error);
+                throw new RedisOrmEntityError(`(${this.constructor.name}) ${saveResult.error}`);
             }
         }
 
@@ -409,7 +415,20 @@ export class BaseEntity {
         this._values = {};
 
         // update the flags
+        const isNew = this._isNew;
         this._isNew = false;
+
+        // fire event
+        if (isRestore) {
+            eventEmitters.getEventEmitter(this.constructor as any).emit("restore", this);
+
+        } else {
+            if (isNew) {
+                eventEmitters.getEventEmitter(this.constructor as any).emit("create", this);
+            } else {
+                eventEmitters.getEventEmitter(this.constructor as any).emit("update", this);
+            }
+        }
 
         return this;
     }
@@ -417,13 +436,13 @@ export class BaseEntity {
     private async _deleteInternal({forceDelete = false} = {}) {
         // checking
         if (this.isNew) {
-            throw new RedisOrmEntityError("You cannot delete a new entity");
+            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot delete a new entity`);
         }
 
         // if it's soft delete
-        const entityMeta = metaInstance.getEntityMeta(this.constructor);
+        const entityMeta = serviceInstance.getEntityMeta(this.constructor);
         if (!forceDelete && this.isDeleted) {
-            throw new RedisOrmEntityError("You cannot delete a deleted entity");
+            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot delete a deleted entity`);
         }
 
         // if we didn't set deletedAt, set a new one
@@ -434,13 +453,13 @@ export class BaseEntity {
 
         // prepare redis lua command parameters
         const entityId = this.getEntityId();
-        const tableName = metaInstance.getTable(this.constructor);
-        const indexKeys = metaInstance.getIndexKeys(this.constructor);
-        const uniqueKeys = metaInstance.getUniqueKeys(this.constructor);
+        const tableName = serviceInstance.getTable(this.constructor);
+        const indexKeys = serviceInstance.getIndexKeys(this.constructor);
+        const uniqueKeys = serviceInstance.getUniqueKeys(this.constructor);
 
         const keys: [] = [];
         const params = [
-            metaInstance.getSchemasJson(this.constructor),
+            serviceInstance.getSchemasJson(this.constructor),
             entityId,
             !forceDelete,
             tableName,
@@ -449,17 +468,24 @@ export class BaseEntity {
             JSON.stringify(uniqueKeys),
         ];
 
-        const redis = await metaInstance.getRedis(this.constructor);
+        const redis = await serviceInstance.getRedis(this.constructor);
         const commandResult =  await (redis as any).commandAtomicDelete(keys, params);
         const saveResult = JSON.parse(commandResult) as ISaveResult;
 
         // throw error if there is any
         if (saveResult.error) {
-            throw new Error(saveResult.error);
+            throw new RedisOrmEntityError(`(${this.constructor.name}) ${saveResult.error}`);
         }
 
         // update deleted At
         this._set("deletedAt", deletedAt, true);
+
+        // fire event
+        if (forceDelete) {
+            eventEmitters.getEventEmitter(this.constructor as any).emit("forceDelete", this);
+        } else {
+            eventEmitters.getEventEmitter(this.constructor as any).emit("delete", this);
+        }
 
         return this;
     }
@@ -467,7 +493,7 @@ export class BaseEntity {
     private _getChanges(): { [key: string]: string } {
         let hasChanges = false;
         const changes: { [key: string]: string } = {};
-        const schemas = metaInstance.getSchemas(this.constructor);
+        const schemas = serviceInstance.getSchemas(this.constructor);
         for (const [column, schema] of Object.entries(schemas)) {
             // if no such value before, it must be a changes
             const currentValue = this._get(column);

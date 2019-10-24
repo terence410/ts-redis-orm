@@ -1,7 +1,7 @@
 import fs from "fs";
 import * as readline from "readline";
 import {BaseEntity} from "./BaseEntity";
-import {metaInstance, schemaJsonReplacer} from "./metaInstance";
+import {schemaJsonReplacer, serviceInstance} from "./serviceInstance";
 
 class EntityExporter {
     public exportEntities<T extends BaseEntity>(entityType: object, entities: T[], file: string) {
@@ -12,8 +12,8 @@ class EntityExporter {
             const meta = {
                 createdAt: new Date(),
                 class: (entityType as any).name,
-                table: metaInstance.getTable(entityType),
-                schemas: metaInstance.getSchemasJson(entityType),
+                table: serviceInstance.getTable(entityType),
+                schemas: serviceInstance.getSchemasJson(entityType),
                 total: entities.length,
             };
             writeStream.write(JSON.stringify(meta, schemaJsonReplacer) + "\r\n");
@@ -126,7 +126,7 @@ class EntityExporter {
 
                     if (!skipSchemasCheck) {
                         const className = (entityType as any).name;
-                        const clientSchemas = metaInstance.getSchemasJson(entityType);
+                        const clientSchemas = serviceInstance.getSchemasJson(entityType);
                         if (meta.class !== className) {
                             const err = new Error();
                             err.message = `Class name: ${className} does not match with the import file: ${meta.class}`;

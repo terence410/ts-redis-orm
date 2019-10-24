@@ -1,5 +1,5 @@
 import { BaseEntity } from "./BaseEntity";
-import { IAggregateObject, IArgColumn, IIndexOperator, IIdObject, IOrder, IStringOperator, IUniqueValueType, IValueType } from "./types";
+import { IAggregateObject, IArgColumn, IIdObject, IIndexOperator, IOrder, IStringOperator, IUniqueValueType, IValueType } from "./types";
 export declare class Query<T extends typeof BaseEntity> {
     private readonly _entityType;
     private _onlyDeleted;

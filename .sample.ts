@@ -138,6 +138,14 @@ const main = async () => {
     await MyEntity.import("path");
     await MyEntity.import("path", true); // skip schemas check
 
+    // events
+    const events = MyEntity.getEventEmitter();
+    events.on("create", (entity) => { /* */ });
+    events.on("update", (entity) => { /* */ });
+    events.on("delete", (entity) => { /* */ });
+    events.on("forceDelete", (entity) => { /* */ });
+    events.on("restore", (entity) => { /* */ });
+
     // errors
     try {
         await MyEntity.create({}).save();

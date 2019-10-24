@@ -167,6 +167,15 @@ const main = async () => {
     await MyEntity.import("path");
     await MyEntity.import("path", true); // skip schemas check 
     
+    // events
+    const events = MyEntity.getEventEmitter();
+    events.on("create", (entity) => { /* */ });
+    events.on("update", (entity) => { /* */ });
+    events.on("delete", (entity) => { /* */ });
+    events.on("forceDelete", (entity) => { /* */ });
+    events.on("restore", (entity) => { /* */ });
+
+    
     // errors
     try {
         await MyEntity.create({}).save();
@@ -196,8 +205,10 @@ const main = async () => {
 - In tsconfig.json, set "emitDecoratorMetadata" to true. 
 - In tsconfig.json, set "strictNullChecks" to true. (To avoid type confusion in entity)
 - Create redisorm.default.json in the project root folder.
-  - If you wanted to manage multiple environment, you can create redisorm.${node_env}.json, where ${node_env} eqauls to the process.env.node_env environment variable.
+  - If you wanted to manage multiple environment, you can create redisorm.${NODE_ENV}.json, where ${NODE_ENV} eqauls to the process.env.NODE_ENV environment variable.
   - The library will search for the environment specific json file first. If it does not exist, it will try to load the redisorm.default.json.
+- Export env variable REDIS_ORM_CONFIG=custom.json for your own config file path
+
 ```json5
 {
    // If you didn't set any connection in Entity, it will use the default connection.

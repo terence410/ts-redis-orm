@@ -1,6 +1,6 @@
 import {assert, expect } from "chai";
 import {BaseEntity, Column, Entity} from "../src/";
-import {metaInstance} from "../src/metaInstance";
+import {serviceInstance} from "../src/serviceInstance";
 
 type IObject = {
     string1?: string,
@@ -41,7 +41,7 @@ describe("Speed Test", () => {
     const after: any = {};
 
     beforeEach(async () => {
-        const redis = await metaInstance.getRedis(TestingSpeed);
+        const redis = await serviceInstance.getRedis(TestingSpeed);
         const info = await redis.info("all");
         const matches1 = info.match(/used_memory:(.*)/);
         if (matches1) { before.used_memory = matches1[1]; }
@@ -54,7 +54,7 @@ describe("Speed Test", () => {
     });
 
     afterEach(async () => {
-        const redis = await metaInstance.getRedis(TestingSpeed);
+        const redis = await serviceInstance.getRedis(TestingSpeed);
         const info = await redis.info("all");
 
         const matches1 = info.match(/used_memory:(.*)/);

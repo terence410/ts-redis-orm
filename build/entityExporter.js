@@ -1,9 +1,10 @@
 "use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
@@ -47,7 +48,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var fs_1 = __importDefault(require("fs"));
 var readline = __importStar(require("readline"));
-var metaInstance_1 = require("./metaInstance");
+var serviceInstance_1 = require("./serviceInstance");
 var EntityExporter = /** @class */ (function () {
     function EntityExporter() {
     }
@@ -58,11 +59,11 @@ var EntityExporter = /** @class */ (function () {
             var meta = {
                 createdAt: new Date(),
                 class: entityType.name,
-                table: metaInstance_1.metaInstance.getTable(entityType),
-                schemas: metaInstance_1.metaInstance.getSchemas(entityType),
+                table: serviceInstance_1.serviceInstance.getTable(entityType),
+                schemas: serviceInstance_1.serviceInstance.getSchemasJson(entityType),
                 total: entities.length,
             };
-            writeStream.write(JSON.stringify(meta, metaInstance_1.schemaJsonReplacer) + "\r\n");
+            writeStream.write(JSON.stringify(meta, serviceInstance_1.schemaJsonReplacer) + "\r\n");
             // write all the models
             for (var _i = 0, entities_1 = entities; _i < entities_1.length; _i++) {
                 var entity = entities_1[_i];
@@ -77,7 +78,8 @@ var EntityExporter = /** @class */ (function () {
             writeStream.end();
         });
     };
-    EntityExporter.prototype.import = function (entityType, file) {
+    EntityExporter.prototype.import = function (entityType, file, skipSchemasCheck) {
+        if (skipSchemasCheck === void 0) { skipSchemasCheck = false; }
         return __awaiter(this, void 0, void 0, function () {
             var readStream, r1;
             return __generator(this, function (_a) {
@@ -172,6 +174,22 @@ var EntityExporter = /** @class */ (function () {
                                     err.message = "data: " + data + "\r\n" + err.message;
                                     currentError = err;
                                     checkError();
+                                }
+                                if (!skipSchemasCheck) {
+                                    var className = entityType.name;
+                                    var clientSchemas = serviceInstance_1.serviceInstance.getSchemasJson(entityType);
+                                    if (meta.class !== className) {
+                                        var err = new Error();
+                                        err.message = "Class name: " + className + " does not match with the import file: " + meta.class;
+                                        currentError = err;
+                                        checkError();
+                                    }
+                                    else if (meta.schemas !== clientSchemas) {
+                                        var err = new Error();
+                                        err.message = "Current Schemas: " + clientSchemas + " does not match with the import file: " + meta.schemas;
+                                        currentError = err;
+                                        checkError();
+                                    }
                                 }
                             }
                             else {

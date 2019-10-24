@@ -10,7 +10,7 @@ const IOREDIS_ERROR_RETRY_DELAY = 1000;
 const IOREDIS_CONNECT_TIMEOUT = 10000;
 const IOREDIS_REIGSTER_LUA_DELAY = 100;
 
-class MetaInstance {
+class ServiceInstance {
     private _entityMetas = new Map<object, IEntityMeta>();
     private _entitySchemas = new Map<object, {[key: string]: ISchema}>();
     private _entitySchemasJsons = new Map<object, string>(); // cache for faster JSON.stringify
@@ -41,15 +41,13 @@ class MetaInstance {
         const configFile = configLoader.getConfigFile();
 
         if (!configFile) {
-            throw new RedisOrmDecoratorError(
-                `Config file not found. Please create redisorm.default.json in the project root folder.`);
+            throw new RedisOrmDecoratorError(`Config file not found. Please create redisorm.default.json in the project root folder.`);
         }
 
         const rawData = fs.readFileSync(configFile);
         const connectionConfigs = JSON.parse(rawData.toString());
         if (!(connection in connectionConfigs)) {
-            throw new RedisOrmDecoratorError(
-                `Invalid connection: ${connection}. Please check ${configFile}`);
+            throw new RedisOrmDecoratorError(`Invalid connection: ${connection}. Please check ${configFile}`);
         }
 
         // add retry add retry strategy if needed to trigger connect error
@@ -125,7 +123,10 @@ class MetaInstance {
 
     public convertAsEntityId(target: object, idObject: {[key: string]: any} | string | number): string | undefined {
         const primaryKeys = this.getPrimaryKeys(target).sort();
-        if (typeof idObject === "string") {
+        if (idObject === null || idObject === undefined) {
+            throw new RedisOrmQueryError(`(${(target as any).name}) Invalid id: ${idObject}`);
+
+        } else if (typeof idObject === "string") {
             return idObject;
 
         } else if (typeof idObject === "number") {
@@ -133,7 +134,7 @@ class MetaInstance {
 
         } else if (typeof idObject === "object") {
             if (!primaryKeys.every(column => column in idObject)) {
-                throw new RedisOrmQueryError(`Invalid id ${JSON.stringify(idObject)}`);
+                throw new RedisOrmQueryError(`(${(target as any).name}) Invalid id ${JSON.stringify(idObject)}`);
             }
 
             return primaryKeys
@@ -152,37 +153,37 @@ class MetaInstance {
     }
 
     public isValidColumn(target: object, column: string) {
-        const keys = metaInstance.getColumns(target);
+        const keys = serviceInstance.getColumns(target);
         return keys.includes(column);
     }
 
     public isSearchableColumn(target: object, column: string) {
-        const schemas = metaInstance.getSchemas(target);
+        const schemas = serviceInstance.getSchemas(target);
         return (column in schemas && [String, Number, Date, Boolean].includes(schemas[column].type));
     }
 
     public isUniqueKey(target: object, column: string) {
-        const keys = metaInstance.getUniqueKeys(target);
+        const keys = serviceInstance.getUniqueKeys(target);
         return keys.includes(column);
     }
 
     public isPrimaryKey(target: object, column: string) {
-        const keys = metaInstance.getPrimaryKeys(target);
+        const keys = serviceInstance.getPrimaryKeys(target);
         return keys.includes(column);
     }
 
     public isSortableColumn(target: object, column: string): boolean {
-        const schema = metaInstance.getSchema(target, column);
+        const schema = serviceInstance.getSchema(target, column);
         return schema.type === Number || schema.type === Boolean || schema.type === Date;
     }
 
     public isNumberColumn(target: object, column: string) {
-        const schema = metaInstance.getSchema(target, column);
+        const schema = serviceInstance.getSchema(target, column);
         return schema.type === Number;
     }
 
     public isDateColumn(target: object, column: string) {
-        const schema = metaInstance.getSchema(target, column);
+        const schema = serviceInstance.getSchema(target, column);
         return schema.type === Date;
     }
 
@@ -213,7 +214,7 @@ class MetaInstance {
     }
 
     public async compareSchemas(target: object): Promise<string[]> {
-        const redis = await metaInstance.getRedis(target);
+        const redis = await serviceInstance.getRedis(target);
         let errors: string[] = [];
 
         try {
@@ -342,27 +343,22 @@ class MetaInstance {
             const remoteSchema = remoteSchemas[column] as ISchema;
 
             if (clientSchema.type !== remoteSchema.type) {
-                // tslint:disable-next-line:max-line-length
                 errors.push(`Incompatible type on column: ${column}, current value: ${clientSchema.type}, remove value: ${remoteSchema.type}`);
             }
 
             if (clientSchema.index !== remoteSchema.index) {
-                // tslint:disable-next-line:max-line-length
                 errors.push(`Incompatible index on column: ${column}, current value: ${clientSchema.index}, remove value: ${remoteSchema.index}`);
             }
 
             if (clientSchema.unique !== remoteSchema.unique) {
-                // tslint:disable-next-line:max-line-length
                 errors.push(`Incompatible unique on column: ${column}, current value: ${clientSchema.unique}, remove value: ${remoteSchema.unique}`);
             }
 
             if (clientSchema.autoIncrement !== remoteSchema.autoIncrement) {
-                // tslint:disable-next-line:max-line-length
                 errors.push(`Incompatible autoIncrement on column: ${column}, current value: ${clientSchema.autoIncrement}, remove value: ${remoteSchema.autoIncrement}`);
             }
 
             if (clientSchema.primary !== remoteSchema.primary) {
-                // tslint:disable-next-line:max-line-length
                 errors.push(`Incompatible primary on column: ${column}, current value: ${clientSchema.primary}, remove value: ${remoteSchema.primary}`);
             }
         }
@@ -392,7 +388,7 @@ class MetaInstance {
     // endregion
 }
 
-export const metaInstance = new MetaInstance();
+export const serviceInstance = new ServiceInstance();
 export function schemaJsonReplacer(key: any, value: any) {
     if (key === "type" && [String, Number, Boolean, Date, Array, Object].includes(value)) {
         return value.name;

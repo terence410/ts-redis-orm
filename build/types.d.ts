@@ -66,3 +66,12 @@ export declare type IInstanceValues<T> = {
     deletedAt: Date;
 };
 export declare type IIdObject<T> = IArgValues<T> | number | string;
+export declare type IEventType = "create" | "update" | "delete" | "forceDelete" | "restore";
+export interface IEvent<T> {
+    on(type: IEventType, callback: (entity: T) => void): any;
+    addListener(type: IEventType, callback: (entity: T) => void): any;
+    removeListener(type: IEventType, callback: (entity: T) => void): any;
+    once(type: IEventType, callback: (entity: T) => void): any;
+    off(type: IEventType, callback: (entity: T) => void): any;
+    emit(type: IEventType, entity: T): any;
+}

@@ -2,34 +2,34 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 require("reflect-metadata");
 var __1 = require("..");
-var metaInstance_1 = require("../metaInstance");
+var serviceInstance_1 = require("../serviceInstance");
 function validSchema(target, schema) {
     // only one schema
-    var autoIncrementKey = metaInstance_1.metaInstance.getAutoIncrementKey(target);
+    var autoIncrementKey = serviceInstance_1.serviceInstance.getAutoIncrementKey(target);
     if (autoIncrementKey) {
         if (schema.autoIncrement) {
-            throw new __1.RedisOrmDecoratorError("AutoIncrement already exist for column: " + autoIncrementKey);
+            throw new __1.RedisOrmDecoratorError("(" + target.name + ") AutoIncrement already exist for column: " + autoIncrementKey);
         }
         if (schema.primary) {
-            throw new __1.RedisOrmDecoratorError("AutoIncrement can only work with one primary key");
+            throw new __1.RedisOrmDecoratorError("(" + target.name + ") AutoIncrement can only work with one primary key");
         }
     }
     if (schema.autoIncrement && !schema.primary) {
-        throw new __1.RedisOrmDecoratorError("AutoIncrement needs pair up with primary key");
+        throw new __1.RedisOrmDecoratorError("(" + target.name + ") AutoIncrement needs pair up with primary key");
     }
     if (schema.primary) {
         if (schema.type !== String && schema.type !== Number) {
-            throw new __1.RedisOrmDecoratorError("Primary key only supports String or Number");
+            throw new __1.RedisOrmDecoratorError("(" + target.name + ") Primary key only supports String or Number");
         }
     }
     if (schema.index) {
         if (schema.type !== Number && schema.type !== Boolean && schema.type !== Date) {
-            throw new __1.RedisOrmDecoratorError("Index only supports Number, Boolean or Date");
+            throw new __1.RedisOrmDecoratorError("(" + target.name + ") Index only supports Number, Boolean or Date");
         }
     }
     if (schema.unique) {
         if (schema.type !== String && schema.type !== Number) {
-            throw new __1.RedisOrmDecoratorError("Unique only supports String or Number");
+            throw new __1.RedisOrmDecoratorError("(" + target.name + ") Unique only supports String or Number");
         }
     }
 }
@@ -49,7 +49,7 @@ function Column(schema) {
         // validate schema
         validSchema(target.constructor, newSchema);
         // everything ok , add the schema
-        metaInstance_1.metaInstance.addColumn(target.constructor, propertyKey, newSchema);
+        serviceInstance_1.serviceInstance.addColumn(target.constructor, propertyKey, newSchema);
         // define getter / setter
         if (!Object.getOwnPropertyDescriptor(target.constructor.prototype, propertyKey)) {
             Object.defineProperty(target.constructor.prototype, propertyKey, {

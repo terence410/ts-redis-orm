@@ -58,3 +58,15 @@ export type IArgValues<T> = {[P in Exclude<keyof T, keyof BaseEntity>]?: T[P]} |
 export type IInstanceValues<T> = {[P in Exclude<keyof T, keyof BaseEntity>]: T[P]} &
     {createdAt: Date, updatedAt: Date, deletedAt: Date};
 export type IIdObject<T> = IArgValues<T> | number | string;
+
+// event
+export type IEventType = "create" | "update" | "delete" | "forceDelete" | "restore";
+
+export interface IEvent<T> {
+    on(type: IEventType, callback: (entity: T) => void): any;
+    addListener(type: IEventType, callback: (entity: T) => void): any;
+    removeListener(type: IEventType, callback: (entity: T) => void): any;
+    once(type: IEventType, callback: (entity: T) => void): any;
+    off(type: IEventType, callback: (entity: T) => void): any;
+    emit(type: IEventType, entity: T): any;
+}

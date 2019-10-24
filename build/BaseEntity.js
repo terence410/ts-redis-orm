@@ -1,9 +1,10 @@
 "use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
         function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
@@ -34,13 +35,21 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+var __spreadArrays = (this && this.__spreadArrays) || function () {
+    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
+    for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+            r[k] = a[j];
+    return r;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var entityExporter_1 = require("./entityExporter");
 var RedisOrmEntityError_1 = require("./errors/RedisOrmEntityError");
 var RedisOrmSchemaError_1 = require("./errors/RedisOrmSchemaError");
-var metaInstance_1 = require("./metaInstance");
+var eventEmitters_1 = require("./eventEmitters");
 var parser_1 = require("./parser");
 var Query_1 = require("./Query");
+var serviceInstance_1 = require("./serviceInstance");
 var BaseEntity = /** @class */ (function () {
     function BaseEntity() {
         // endregion
@@ -60,12 +69,19 @@ var BaseEntity = /** @class */ (function () {
     // region static methods
     BaseEntity.connect = function () {
         return __awaiter(this, void 0, void 0, function () {
+            var redis, schemaErrors;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this)];
-                    case 1: 
-                    // this will init connection
-                    return [2 /*return*/, _a.sent()];
+                    case 0: return [4 /*yield*/, serviceInstance_1.serviceInstance.getRedis(this)];
+                    case 1:
+                        redis = _a.sent();
+                        return [4 /*yield*/, serviceInstance_1.serviceInstance.compareSchemas(this)];
+                    case 2:
+                        schemaErrors = _a.sent();
+                        if (schemaErrors.length) {
+                            throw new RedisOrmSchemaError_1.RedisOrmSchemaError("(" + this.name + ") Invalid Schemas", schemaErrors);
+                        }
+                        return [2 /*return*/, redis];
                 }
             });
         });
@@ -126,7 +142,7 @@ var BaseEntity = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this, false)];
+                    case 0: return [4 /*yield*/, serviceInstance_1.serviceInstance.getRedis(this, false)];
                     case 1: return [2 /*return*/, _a.sent()];
                 }
             });
@@ -137,17 +153,17 @@ var BaseEntity = /** @class */ (function () {
             var redis, remoteSchemas, tableName, keys, params, commandResult, saveResult;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this)];
+                    case 0: return [4 /*yield*/, serviceInstance_1.serviceInstance.getRedis(this)];
                     case 1:
                         redis = _a.sent();
-                        return [4 /*yield*/, metaInstance_1.metaInstance.getRemoteSchemas(this, redis)];
+                        return [4 /*yield*/, serviceInstance_1.serviceInstance.getRemoteSchemas(this, redis)];
                     case 2:
                         remoteSchemas = _a.sent();
                         if (!remoteSchemas) return [3 /*break*/, 4];
-                        tableName = metaInstance_1.metaInstance.getTable(this);
+                        tableName = serviceInstance_1.serviceInstance.getTable(this);
                         keys = [];
                         params = [
-                            metaInstance_1.metaInstance.getSchemasJson(this),
+                            serviceInstance_1.serviceInstance.getSchemasJson(this),
                             tableName,
                         ];
                         return [4 /*yield*/, redis.commandAtomicResyncDb(keys, params)];
@@ -155,7 +171,7 @@ var BaseEntity = /** @class */ (function () {
                         commandResult = _a.sent();
                         saveResult = JSON.parse(commandResult);
                         if (saveResult.error) {
-                            throw new RedisOrmEntityError_1.RedisOrmEntityError(saveResult.error);
+                            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.name + ") " + saveResult.error);
                         }
                         _a.label = 4;
                     case 4: return [2 /*return*/];
@@ -170,16 +186,16 @@ var BaseEntity = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         if (className !== this.name) {
-                            throw new RedisOrmEntityError_1.RedisOrmEntityError("You need to provide the class name for truncate");
+                            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.name + ") You need to provide the class name for truncate");
                         }
-                        return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this)];
+                        return [4 /*yield*/, serviceInstance_1.serviceInstance.getRedis(this)];
                     case 1:
                         redis = _a.sent();
-                        return [4 /*yield*/, metaInstance_1.metaInstance.getRemoteSchemas(this, redis)];
+                        return [4 /*yield*/, serviceInstance_1.serviceInstance.getRemoteSchemas(this, redis)];
                     case 2:
                         remoteSchemas = _a.sent();
                         if (!remoteSchemas) return [3 /*break*/, 4];
-                        tableName = metaInstance_1.metaInstance.getTable(this);
+                        tableName = serviceInstance_1.serviceInstance.getTable(this);
                         keys = [];
                         params = [
                             tableName,
@@ -195,6 +211,9 @@ var BaseEntity = /** @class */ (function () {
             });
         });
     };
+    BaseEntity.getEventEmitter = function () {
+        return eventEmitters_1.eventEmitters.getEventEmitter(this);
+    };
     // endregion
     // region static method: import/export
     BaseEntity.export = function (file) {
@@ -208,7 +227,7 @@ var BaseEntity = /** @class */ (function () {
                         return [4 /*yield*/, this.query().onlyDeleted().get()];
                     case 2:
                         allDeleted = _a.sent();
-                        return [4 /*yield*/, this.exportEntities(all.concat(allDeleted), file)];
+                        return [4 /*yield*/, this.exportEntities(__spreadArrays(all, allDeleted), file)];
                     case 3:
                         _a.sent();
                         return [2 /*return*/];
@@ -231,11 +250,12 @@ var BaseEntity = /** @class */ (function () {
     BaseEntity.getImportFileMeta = function () {
         //
     };
-    BaseEntity.import = function (file) {
+    BaseEntity.import = function (file, skipSchemasCheck) {
+        if (skipSchemasCheck === void 0) { skipSchemasCheck = false; }
         return __awaiter(this, void 0, void 0, function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, entityExporter_1.entityExporter.import(this, file)];
+                    case 0: return [4 /*yield*/, entityExporter_1.entityExporter.import(this, file, skipSchemasCheck)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];
@@ -294,7 +314,7 @@ var BaseEntity = /** @class */ (function () {
     // endregion
     // region public methods
     BaseEntity.prototype.getEntityId = function () {
-        var primaryKeys = metaInstance_1.metaInstance.getPrimaryKeys(this.constructor).sort();
+        var primaryKeys = serviceInstance_1.serviceInstance.getPrimaryKeys(this.constructor).sort();
         var values = [];
         for (var _i = 0, primaryKeys_1 = primaryKeys; _i < primaryKeys_1.length; _i++) {
             var column = primaryKeys_1[_i];
@@ -304,7 +324,7 @@ var BaseEntity = /** @class */ (function () {
                     values.push(value.toString().replace(/:/g, ""));
                 }
                 else {
-                    throw new RedisOrmEntityError_1.RedisOrmEntityError("Invalid number value: " + value + " for primary key: " + column);
+                    throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") Invalid number value: " + value + " for primary key: " + column);
                 }
             }
             else if (typeof value === "string") {
@@ -312,18 +332,18 @@ var BaseEntity = /** @class */ (function () {
                     values.push(value.replace(/:/g, ""));
                 }
                 else {
-                    throw new RedisOrmEntityError_1.RedisOrmEntityError("Invalid string value: '" + value + "' for primary key: " + column);
+                    throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") Invalid string value: '" + value + "' for primary key: " + column);
                 }
             }
             else {
-                throw new RedisOrmEntityError_1.RedisOrmEntityError("Invalid value: " + value + " for primary key: " + column);
+                throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") Invalid value: " + value + " for primary key: " + column);
             }
         }
         return values.join(":");
     };
     BaseEntity.prototype.getValues = function () {
         var values = {};
-        var columns = metaInstance_1.metaInstance.getColumns(this.constructor);
+        var columns = serviceInstance_1.serviceInstance.getColumns(this.constructor);
         for (var _i = 0, columns_1 = columns; _i < columns_1.length; _i++) {
             var column = columns_1[_i];
             values[column] = this._get(column);
@@ -333,19 +353,19 @@ var BaseEntity = /** @class */ (function () {
     BaseEntity.prototype.increment = function (column, value) {
         if (value === void 0) { value = 1; }
         if (this.isNew) {
-            throw new RedisOrmEntityError_1.RedisOrmEntityError("You cannot increment a new entity");
+            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") You cannot increment a new entity");
         }
-        if (metaInstance_1.metaInstance.isPrimaryKey(this.constructor, column)) {
-            throw new RedisOrmEntityError_1.RedisOrmEntityError("You cannot increment primary key");
+        if (serviceInstance_1.serviceInstance.isPrimaryKey(this.constructor, column)) {
+            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") You cannot increment primary key");
         }
-        if (metaInstance_1.metaInstance.isUniqueKey(this.constructor, column)) {
-            throw new RedisOrmEntityError_1.RedisOrmEntityError("You cannot increment unique key");
+        if (serviceInstance_1.serviceInstance.isUniqueKey(this.constructor, column)) {
+            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") You cannot increment unique key");
         }
-        if (!metaInstance_1.metaInstance.isNumberColumn(this.constructor, column)) {
-            throw new RedisOrmEntityError_1.RedisOrmEntityError("Column need to be in the type of Number");
+        if (!serviceInstance_1.serviceInstance.isNumberColumn(this.constructor, column)) {
+            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") Column need to be in the type of Number");
         }
         if (!Number.isInteger(value)) {
-            throw new RedisOrmEntityError_1.RedisOrmEntityError("Increment value need to be an integer");
+            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") Increment value need to be an integer");
         }
         this._increments[column] = value;
         return this;
@@ -359,9 +379,7 @@ var BaseEntity = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this._saveInternal()];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
+                    case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
@@ -371,9 +389,7 @@ var BaseEntity = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this._deleteInternal({ forceDelete: false })];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
+                    case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
@@ -383,9 +399,7 @@ var BaseEntity = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this._deleteInternal({ forceDelete: true })];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
+                    case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
@@ -395,9 +409,7 @@ var BaseEntity = /** @class */ (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this._saveInternal({ isRestore: true })];
-                    case 1:
-                        _a.sent();
-                        return [2 /*return*/];
+                    case 1: return [2 /*return*/, _a.sent()];
                 }
             });
         });
@@ -406,6 +418,9 @@ var BaseEntity = /** @class */ (function () {
         var entity = new this.constructor();
         entity.set(this.getValues());
         return entity;
+    };
+    BaseEntity.prototype.toJSON = function () {
+        return this.getValues();
     };
     // endregion
     // region protected methods
@@ -422,14 +437,14 @@ var BaseEntity = /** @class */ (function () {
     // region private methods: value get / set
     BaseEntity.prototype._get = function (column) {
         if (!(column in this._values)) {
-            var schema = metaInstance_1.metaInstance.getSchema(this.constructor, column);
+            var schema = serviceInstance_1.serviceInstance.getSchema(this.constructor, column);
             this._values[column] = parser_1.parser.parseStorageStringToValue(schema.type, this._storageStrings[column]);
         }
         return this._values[column];
     };
     BaseEntity.prototype._set = function (column, value, updateStorageString) {
         if (updateStorageString === void 0) { updateStorageString = false; }
-        var schema = metaInstance_1.metaInstance.getSchema(this.constructor, column);
+        var schema = serviceInstance_1.serviceInstance.getSchema(this.constructor, column);
         var storageString = parser_1.parser.parseValueToStorageString(schema.type, value);
         this._values[column] = parser_1.parser.parseStorageStringToValue(schema.type, storageString);
         if (updateStorageString) {
@@ -441,18 +456,18 @@ var BaseEntity = /** @class */ (function () {
     BaseEntity.prototype._saveInternal = function (_a) {
         var _b = (_a === void 0 ? {} : _a).isRestore, isRestore = _b === void 0 ? false : _b;
         return __awaiter(this, void 0, void 0, function () {
-            var changes, tableName, indexKeys, uniqueKeys, autoIncrementKey, entityId, params, redis, commandResult, saveResult, schemaErrors, _i, _c, _d, column, value;
+            var changes, tableName, indexKeys, uniqueKeys, autoIncrementKey, entityId, params, redis, commandResult, saveResult, schemaErrors, _i, _c, _d, column, value, isNew;
             return __generator(this, function (_e) {
                 switch (_e.label) {
                     case 0:
                         if (this.isDeleted && !isRestore) {
-                            throw new RedisOrmEntityError_1.RedisOrmEntityError("You cannot update a deleted entity");
+                            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") You cannot update a deleted entity");
                         }
                         changes = this._getChanges();
                         if (Object.keys(changes).length === 0) {
                             // no changes and no increments, no need to save
                             if (!isRestore && Object.keys(this._increments).length === 0) {
-                                return [2 /*return*/];
+                                return [2 /*return*/, this];
                             }
                         }
                         // update updatedAt if user didn't update it explicitly
@@ -461,12 +476,12 @@ var BaseEntity = /** @class */ (function () {
                         }
                         // remove deletedAt for all situation
                         changes.deletedAt = parser_1.parser.parseValueToStorageString(Date, new Date(Number.NaN));
-                        tableName = metaInstance_1.metaInstance.getTable(this.constructor);
-                        indexKeys = metaInstance_1.metaInstance.getIndexKeys(this.constructor);
-                        uniqueKeys = metaInstance_1.metaInstance.getUniqueKeys(this.constructor);
-                        autoIncrementKey = metaInstance_1.metaInstance.getAutoIncrementKey(this.constructor);
+                        tableName = serviceInstance_1.serviceInstance.getTable(this.constructor);
+                        indexKeys = serviceInstance_1.serviceInstance.getIndexKeys(this.constructor);
+                        uniqueKeys = serviceInstance_1.serviceInstance.getUniqueKeys(this.constructor);
+                        autoIncrementKey = serviceInstance_1.serviceInstance.getAutoIncrementKey(this.constructor);
                         entityId = "";
-                        // we must for a new entity for the case
+                        // we must assign an entity id for the following case
                         // - if it's not new
                         // - if it's not auto increment
                         // - if the auto increment key is not 0
@@ -474,7 +489,7 @@ var BaseEntity = /** @class */ (function () {
                             entityId = this.getEntityId();
                         }
                         params = [
-                            metaInstance_1.metaInstance.getSchemasJson(this.constructor),
+                            serviceInstance_1.serviceInstance.getSchemasJson(this.constructor),
                             entityId,
                             this.isNew,
                             tableName,
@@ -485,7 +500,7 @@ var BaseEntity = /** @class */ (function () {
                             JSON.stringify(this._increments),
                             isRestore,
                         ];
-                        return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this.constructor)];
+                        return [4 /*yield*/, serviceInstance_1.serviceInstance.getRedis(this.constructor)];
                     case 1:
                         redis = _e.sent();
                         return [4 /*yield*/, redis.commandAtomicSave([], params)];
@@ -494,11 +509,11 @@ var BaseEntity = /** @class */ (function () {
                         saveResult = JSON.parse(commandResult);
                         if (!saveResult.error) return [3 /*break*/, 5];
                         if (!(saveResult.error === "Invalid Schemas")) return [3 /*break*/, 4];
-                        return [4 /*yield*/, metaInstance_1.metaInstance.compareSchemas(this.constructor)];
+                        return [4 /*yield*/, serviceInstance_1.serviceInstance.compareSchemas(this.constructor)];
                     case 3:
                         schemaErrors = _e.sent();
-                        throw new RedisOrmSchemaError_1.RedisOrmSchemaError(saveResult.error, schemaErrors);
-                    case 4: throw new RedisOrmEntityError_1.RedisOrmEntityError(saveResult.error);
+                        throw new RedisOrmSchemaError_1.RedisOrmSchemaError("(" + this.constructor.name + ") " + saveResult.error, schemaErrors);
+                    case 4: throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") " + saveResult.error);
                     case 5:
                         // update storage strings
                         Object.assign(this._storageStrings, changes);
@@ -516,9 +531,21 @@ var BaseEntity = /** @class */ (function () {
                         // clean up
                         this._increments = {};
                         this._values = {};
-                        // update the flags
+                        isNew = this._isNew;
                         this._isNew = false;
-                        return [2 /*return*/];
+                        // fire event
+                        if (isRestore) {
+                            eventEmitters_1.eventEmitters.getEventEmitter(this.constructor).emit("restore", this);
+                        }
+                        else {
+                            if (isNew) {
+                                eventEmitters_1.eventEmitters.getEventEmitter(this.constructor).emit("create", this);
+                            }
+                            else {
+                                eventEmitters_1.eventEmitters.getEventEmitter(this.constructor).emit("update", this);
+                            }
+                        }
+                        return [2 /*return*/, this];
                 }
             });
         });
@@ -532,22 +559,23 @@ var BaseEntity = /** @class */ (function () {
                     case 0:
                         // checking
                         if (this.isNew) {
-                            throw new RedisOrmEntityError_1.RedisOrmEntityError("You cannot delete a new entity");
+                            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") You cannot delete a new entity");
                         }
-                        entityMeta = metaInstance_1.metaInstance.getEntityMeta(this.constructor);
+                        entityMeta = serviceInstance_1.serviceInstance.getEntityMeta(this.constructor);
                         if (!forceDelete && this.isDeleted) {
-                            throw new RedisOrmEntityError_1.RedisOrmEntityError("You cannot delete a deleted entity");
+                            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") You cannot delete a deleted entity");
                         }
                         deletedAt = this.deletedAt;
                         if (isNaN(deletedAt.getTime())) {
                             deletedAt = new Date();
                         }
                         entityId = this.getEntityId();
-                        tableName = metaInstance_1.metaInstance.getTable(this.constructor);
-                        indexKeys = metaInstance_1.metaInstance.getIndexKeys(this.constructor);
-                        uniqueKeys = metaInstance_1.metaInstance.getUniqueKeys(this.constructor);
+                        tableName = serviceInstance_1.serviceInstance.getTable(this.constructor);
+                        indexKeys = serviceInstance_1.serviceInstance.getIndexKeys(this.constructor);
+                        uniqueKeys = serviceInstance_1.serviceInstance.getUniqueKeys(this.constructor);
                         keys = [];
                         params = [
+                            serviceInstance_1.serviceInstance.getSchemasJson(this.constructor),
                             entityId,
                             !forceDelete,
                             tableName,
@@ -555,7 +583,7 @@ var BaseEntity = /** @class */ (function () {
                             JSON.stringify(indexKeys),
                             JSON.stringify(uniqueKeys),
                         ];
-                        return [4 /*yield*/, metaInstance_1.metaInstance.getRedis(this.constructor)];
+                        return [4 /*yield*/, serviceInstance_1.serviceInstance.getRedis(this.constructor)];
                     case 1:
                         redis = _c.sent();
                         return [4 /*yield*/, redis.commandAtomicDelete(keys, params)];
@@ -564,11 +592,18 @@ var BaseEntity = /** @class */ (function () {
                         saveResult = JSON.parse(commandResult);
                         // throw error if there is any
                         if (saveResult.error) {
-                            throw new Error(saveResult.error);
+                            throw new RedisOrmEntityError_1.RedisOrmEntityError("(" + this.constructor.name + ") " + saveResult.error);
                         }
                         // update deleted At
                         this._set("deletedAt", deletedAt, true);
-                        return [2 /*return*/];
+                        // fire event
+                        if (forceDelete) {
+                            eventEmitters_1.eventEmitters.getEventEmitter(this.constructor).emit("forceDelete", this);
+                        }
+                        else {
+                            eventEmitters_1.eventEmitters.getEventEmitter(this.constructor).emit("delete", this);
+                        }
+                        return [2 /*return*/, this];
                 }
             });
         });
@@ -576,7 +611,7 @@ var BaseEntity = /** @class */ (function () {
     BaseEntity.prototype._getChanges = function () {
         var hasChanges = false;
         var changes = {};
-        var schemas = metaInstance_1.metaInstance.getSchemas(this.constructor);
+        var schemas = serviceInstance_1.serviceInstance.getSchemas(this.constructor);
         for (var _i = 0, _a = Object.entries(schemas); _i < _a.length; _i++) {
             var _b = _a[_i], column = _b[0], schema = _b[1];
             // if no such value before, it must be a changes

@@ -1,7 +1,8 @@
 import {BaseEntity} from "./BaseEntity";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
-import {metaInstance} from "./metaInstance";
 import {parser} from "./parser";
+import {serviceInstance} from "./serviceInstance";
+
 import {
     IAggregateObject,
     IArgColumn,
@@ -31,19 +32,19 @@ export class Query<T extends typeof BaseEntity> {
     // region find
 
     public async find(idObject: IIdObject<InstanceType<T>>): Promise<InstanceType<T> | undefined> {
-        const redis = await this._getRedis();
-        const entityId = metaInstance.convertAsEntityId(this._entityType, idObject);
-        const primaryKeys = metaInstance.getPrimaryKeys(this._entityType);
+        const entityId = serviceInstance.convertAsEntityId(this._entityType, idObject);
+        const primaryKeys = serviceInstance.getPrimaryKeys(this._entityType);
         
         // if we have a valid entity id
         if (entityId) {
-            const entityStorageKey = metaInstance.getEntityStorageKey(this._entityType, entityId);
+            const entityStorageKey = serviceInstance.getEntityStorageKey(this._entityType, entityId);
 
             if (!entityStorageKey) {
-                throw new RedisOrmQueryError(`Invalid id ${JSON.stringify(idObject)}`);
+                throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid id ${JSON.stringify(idObject)}`);
             }
 
             // we need to make sure if have all the keys exist in the storage strings
+            const redis = await this._getRedis();
             const storageStrings = await redis.hgetall(entityStorageKey);
             if (primaryKeys.every(primaryKey => primaryKey in storageStrings)) {
                 if ((storageStrings.deletedAt !== "NaN") === this._onlyDeleted) {
@@ -64,13 +65,13 @@ export class Query<T extends typeof BaseEntity> {
     }
 
     public async findUnique(column: IArgColumn<T>, value: IUniqueValueType): Promise<InstanceType<T> | undefined> {
-        if (!metaInstance.isUniqueKey(this._entityType, column as string)) {
-            throw new RedisOrmQueryError(`Invalid unique column: ${column}`);
+        if (!serviceInstance.isUniqueKey(this._entityType, column as string)) {
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid unique column: ${column}`);
         }
 
         const redis = await this._getRedis();
         const id = await redis.hget(
-            metaInstance.getUniqueStorageKey(this._entityType, column as string),
+            serviceInstance.getUniqueStorageKey(this._entityType, column as string),
             value.toString(),
         );
 
@@ -108,18 +109,18 @@ export class Query<T extends typeof BaseEntity> {
 
     public where(column: IArgColumn<T>, operator: IStringOperator | IIndexOperator, value: IValueType) {
         const columnString = column as string;
-        if (metaInstance.isIndexKey(this._entityType, columnString)) {
+        if (serviceInstance.isIndexKey(this._entityType, columnString)) {
             if (this._onlyDeleted) {
-                throw new RedisOrmQueryError(`You cannot apply extra where indexing clause for only deleted query`);
+                throw new RedisOrmQueryError(`(${this._entityType.name}) You cannot apply extra where indexing clause for only deleted query`);
             }
 
-            if (!metaInstance.isIndexKey(this._entityType, columnString)) {
-                throw new RedisOrmQueryError(`Invalid index column: ${column}`);
+            if (!serviceInstance.isIndexKey(this._entityType, columnString)) {
+                throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column}`);
             }
 
             // convert value into string value
             if (value !== "-inf" && value !== "+inf") {
-                const schema = metaInstance.getSchema(this._entityType, columnString);
+                const schema = serviceInstance.getSchema(this._entityType, columnString);
                 value = parser.parseValueToStorageString(schema.type, value);
             }
 
@@ -151,23 +152,23 @@ export class Query<T extends typeof BaseEntity> {
                     break;
 
                 default:
-                    throw new RedisOrmQueryError(`Invalid operator (${operator}) for index column: ${column}`);
+                    throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid operator (${operator}) for index column: ${column}`);
             }
 
             this._whereIndexes[columnString] = whereIndexType;
 
-        } else if (metaInstance.isSearchableColumn(this._entityType, columnString)) {
+        } else if (serviceInstance.isSearchableColumn(this._entityType, columnString)) {
             if (!["=", "!=", "like"].includes(operator)) {
-                throw new RedisOrmQueryError(`Invalid operator (${operator}) for non index column: ${column}`);
+                throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid operator (${operator}) for non index column: ${column}`);
             }
 
             // convert value into string value
-            const schema = metaInstance.getSchema(this._entityType, columnString);
+            const schema = serviceInstance.getSchema(this._entityType, columnString);
             value = parser.parseValueToStorageString(schema.type, value);
             this._whereSearches[columnString] = {operator: operator as IStringOperator, value};
 
         } else {
-            throw new RedisOrmQueryError(`Invalid search column: ${column}`);
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid search column: ${column}`);
 
         }
 
@@ -176,7 +177,7 @@ export class Query<T extends typeof BaseEntity> {
 
     public onlyDeleted(): Query<T> {
         if (Object.keys(this._whereIndexes).length > 0) {
-            throw new RedisOrmQueryError(`You cannot apply extra where indexing clause for only deleted query`);
+            throw new RedisOrmQueryError(`(${this._entityType.name}) You cannot apply extra where indexing clause for only deleted query`);
         }
 
         this.where("deletedAt", "<=", "+inf");
@@ -187,12 +188,11 @@ export class Query<T extends typeof BaseEntity> {
 
     public sortBy(column: IArgColumn<T>, order: IOrder) {
         if (this._sortBy !== null) {
-            throw new RedisOrmQueryError("You can only order by 1 column");
+            throw new RedisOrmQueryError(`(${this._entityType.name}) You can only order by 1 column`);
         }
 
-        if (!metaInstance.isSortableColumn(this._entityType, column as string)) {
-            throw new RedisOrmQueryError(
-                `Not sortable Column: ${column}. You can only sort column type of Number, Boolean or Date`);
+        if (!serviceInstance.isSortableColumn(this._entityType, column as string)) {
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Not sortable Column: ${column}. You can only sort column type of Number, Boolean or Date`);
         }
 
         this._sortBy = {column: column as string, order};
@@ -217,11 +217,11 @@ export class Query<T extends typeof BaseEntity> {
 
     public groupBy(column: IArgColumn<T>) {
         if (this._groupByColumn !== null) {
-            throw new RedisOrmQueryError(`You can only group by 1 column`);
+            throw new RedisOrmQueryError(`(${this._entityType.name}) You can only group by 1 column`);
         }
 
-        if (!metaInstance.isValidColumn(this._entityType, column as string)) {
-            throw new RedisOrmQueryError(`Invalid column: ${column}`);
+        if (!serviceInstance.isValidColumn(this._entityType, column as string)) {
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid column: ${column}`);
         }
 
         this._groupByColumn = column as string;
@@ -258,12 +258,12 @@ export class Query<T extends typeof BaseEntity> {
 
     public async rank(column: IArgColumn<T>, idObject: IIdObject<InstanceType<T>>, isReverse: boolean = false):
         Promise<number> {
-        if (!metaInstance.isIndexKey(this._entityType, column as string)) {
-            throw new RedisOrmQueryError(`Invalid index column: ${column}`);
+        if (!serviceInstance.isIndexKey(this._entityType, column as string)) {
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column}`);
         }
 
-        const indexStorageKey = metaInstance.getIndexStorageKey(this._entityType, column as string);
-        const entityId = metaInstance.convertAsEntityId(this._entityType, idObject);
+        const indexStorageKey = serviceInstance.getIndexStorageKey(this._entityType, column as string);
+        const entityId = serviceInstance.convertAsEntityId(this._entityType, idObject);
 
         if (entityId) {
             const redis = await this._getRedis();
@@ -308,7 +308,7 @@ export class Query<T extends typeof BaseEntity> {
             whereSearchKeys.length,
             this._offset,
             this._limit,
-            metaInstance.getTable(this._entityType),
+            serviceInstance.getTable(this._entityType),
             "", // aggregate
             "", // aggregate column
             "", // group by column
@@ -346,7 +346,7 @@ export class Query<T extends typeof BaseEntity> {
         const order = this._sortBy ? this._sortBy.order : "asc";
 
         // redis params
-        const indexStorageKey = metaInstance.getIndexStorageKey(this._entityType, column);
+        const indexStorageKey = serviceInstance.getIndexStorageKey(this._entityType, column);
         const extraParams = ["LIMIT", this._offset.toString(), this._limit.toString()];
 
         // collect result ids
@@ -364,8 +364,8 @@ export class Query<T extends typeof BaseEntity> {
 
     private async _aggregate(aggregate: string, aggregateColumn: string): Promise<number | IAggregateObject> {
         if (aggregate !== "count") {
-            if (!metaInstance.isNumberColumn(this._entityType, aggregateColumn)) {
-                throw new RedisOrmQueryError(`Column: ${aggregateColumn} is not in the type of number`);
+            if (!serviceInstance.isNumberColumn(this._entityType, aggregateColumn)) {
+                throw new RedisOrmQueryError(`(${this._entityType.name}) Column: ${aggregateColumn} is not in the type of number`);
             }
         }
 
@@ -389,7 +389,7 @@ export class Query<T extends typeof BaseEntity> {
             whereSearchKeys.length,
             this._limit, // not used
             this._offset, // not used
-            metaInstance.getTable(this._entityType),
+            serviceInstance.getTable(this._entityType),
             aggregate,
             aggregateColumn,
             this._groupByColumn,
@@ -433,16 +433,16 @@ export class Query<T extends typeof BaseEntity> {
         const redis = await this._getRedis();
 
         if (max === "+inf" && min === "-inf") {
-            count = await redis.zcard(metaInstance.getIndexStorageKey(this._entityType, column));
+            count = await redis.zcard(serviceInstance.getIndexStorageKey(this._entityType, column));
         } else {
-            count = await redis.zcount(metaInstance.getIndexStorageKey(this._entityType, column), min, max);
+            count = await redis.zcount(serviceInstance.getIndexStorageKey(this._entityType, column), min, max);
         }
 
         return count;
     }
 
     private async _getRedis() {
-        return await metaInstance.getRedis(this._entityType);
+        return await serviceInstance.getRedis(this._entityType);
     }
 
     // endregion

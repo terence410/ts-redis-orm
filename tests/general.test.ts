@@ -1,6 +1,6 @@
 import {assert, expect } from "chai";
 import {BaseEntity, Column, Entity} from "../src/";
-import {metaInstance} from "../src/metaInstance";
+import {serviceInstance} from "../src/serviceInstance";
 
 type NullableString = string | null;
 
@@ -48,11 +48,11 @@ describe("General Test: Internal", () => {
     });
 
     it("meta", async () => {
-        assert.equal(metaInstance.getTable(TestingGeneral), "testing_general");
-        assert.deepEqual(metaInstance.getPrimaryKeys(TestingGeneral), ["id"]);
-        assert.equal(metaInstance.getAutoIncrementKey(TestingGeneral), "id");
-        assert.includeMembers(metaInstance.getIndexKeys(TestingGeneral), ["uniqueNumber", "date", "boolean"]);
-        assert.deepEqual(metaInstance.getUniqueKeys(TestingGeneral), ["uniqueNumber"]);
+        assert.equal(serviceInstance.getTable(TestingGeneral), "testing_general");
+        assert.deepEqual(serviceInstance.getPrimaryKeys(TestingGeneral), ["id"]);
+        assert.equal(serviceInstance.getAutoIncrementKey(TestingGeneral), "id");
+        assert.includeMembers(serviceInstance.getIndexKeys(TestingGeneral), ["uniqueNumber", "date", "boolean"]);
+        assert.deepEqual(serviceInstance.getUniqueKeys(TestingGeneral), ["uniqueNumber"]);
     });
 });
 
@@ -336,7 +336,7 @@ describe("General Test: Create Entity", () => {
             await entity.save();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `Entity not exist or deleted. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}) Entity not exist or deleted. Entity Id: ${entity.getEntityId()}`);
         }
 
         // delete an deleted entity
@@ -344,7 +344,7 @@ describe("General Test: Create Entity", () => {
             await entity.delete();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `Entity already deleted. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}) Entity already deleted. Entity Id: ${entity.getEntityId()}`);
         }
 
         // force delete the entity
@@ -357,7 +357,7 @@ describe("General Test: Create Entity", () => {
             await entity.delete();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `Entity not exist. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}) Entity not exist. Entity Id: ${entity.getEntityId()}`);
         }
     });
 
@@ -465,6 +465,60 @@ describe("General Test: Create Entity", () => {
         if (newEntity) {
             assert.deepEqual(entity.number, newEntity.number);
         }
+    });
+});
+
+describe("Events", () => {
+    it("create, update, delete, restore, forceDelete", async () => {
+        const id = 10001;
+        const entity = TestingGeneral.create({id, uniqueNumber: id});
+        const events = TestingGeneral.getEventEmitter();
+        let createdEntity: any = null;
+        let updatedEntity: any = null;
+        let deletedEntity: any = null;
+        let forcedDeletedEntity: any = null;
+        let restoredEntity: any = null;
+
+        // create
+        events.once("create", (thisEntity) => {
+            createdEntity = thisEntity;
+        });
+        await entity.save();
+        assert.isNotNull(createdEntity);
+        assert.equal(entity.id, (createdEntity as TestingGeneral).id);
+
+        // create
+        entity.string2 = "happy";
+        events.once("update", (thisEntity) => {
+            updatedEntity = thisEntity;
+        });
+        await entity.save();
+        assert.isNotNull(updatedEntity);
+        assert.equal(entity.string2, (updatedEntity as TestingGeneral).string2);
+
+        // delete
+        events.once("delete", (thisEntity) => {
+            deletedEntity = thisEntity;
+        });
+        await entity.delete();
+        assert.isNotNull(deletedEntity);
+        assert.equal(entity.isDeleted, (deletedEntity as TestingGeneral).isDeleted);
+
+        // restore
+        events.once("restore", (thisEntity) => {
+            restoredEntity = thisEntity;
+        });
+        await entity.restore();
+        assert.isDefined(restoredEntity);
+        assert.equal(entity.isDeleted, (restoredEntity as TestingGeneral).isDeleted);
+
+        // forceDelete
+        events.once("forceDelete", (thisEntity) => {
+            forcedDeletedEntity = thisEntity;
+        });
+        await entity.forceDelete();
+        assert.isNotNull(forcedDeletedEntity);
+        assert.equal(entity.isDeleted, (forcedDeletedEntity as TestingGeneral).isDeleted);
     });
 });
 

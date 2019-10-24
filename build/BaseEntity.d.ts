@@ -1,6 +1,6 @@
 /// <reference types="ioredis" />
 import { Query } from "./Query";
-import { IArgValues, IIdObject, IInstanceValues } from "./types";
+import { IArgValues, IEvent, IIdObject, IInstanceValues } from "./types";
 export declare class BaseEntity {
     static connect(): Promise<import("ioredis").Redis>;
     static newFromStorageStrings<T extends typeof BaseEntity>(this: T, storageStrings: {
@@ -15,10 +15,11 @@ export declare class BaseEntity {
     static getRedis(): Promise<import("ioredis").Redis>;
     static resyncDb<T extends typeof BaseEntity>(this: T): Promise<void>;
     static truncate(className: string): Promise<void>;
+    static getEventEmitter<T extends typeof BaseEntity>(this: T): IEvent<InstanceType<T>>;
     static export(file: string): Promise<void>;
     static exportEntities<T extends BaseEntity>(entities: T[], file: string): Promise<void>;
     static getImportFileMeta(): void;
-    static import(file: string): Promise<void>;
+    static import(file: string, skipSchemasCheck?: boolean): Promise<void>;
     private _isNew;
     private _values;
     private _storageStrings;
@@ -33,11 +34,12 @@ export declare class BaseEntity {
     getValues<T extends BaseEntity>(this: T): IInstanceValues<T>;
     increment<T extends BaseEntity>(this: T, column: keyof T, value?: number): T;
     set<T extends BaseEntity>(this: T, values: IArgValues<T>): T;
-    save(): Promise<void>;
-    delete(): Promise<void>;
-    forceDelete(): Promise<void>;
-    restore(): Promise<void>;
+    save(): Promise<this>;
+    delete(): Promise<this>;
+    forceDelete(): Promise<this>;
+    restore(): Promise<this>;
     clone(): this;
+    toJSON(): IInstanceValues<this>;
     protected assignStorageStrings(storageStrings: {
         [key: string]: string;
     }): void;

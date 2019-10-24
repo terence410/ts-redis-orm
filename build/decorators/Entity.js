@@ -12,7 +12,7 @@ var __assign = (this && this.__assign) || function () {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var __1 = require("..");
-var metaInstance_1 = require("../metaInstance");
+var serviceInstance_1 = require("../serviceInstance");
 function Entity(entityMeta) {
     if (entityMeta === void 0) { entityMeta = {}; }
     return function (target) {
@@ -24,7 +24,7 @@ function Entity(entityMeta) {
             redisMaster: null,
         };
         newEntityMeta = Object.assign(newEntityMeta, entityMeta);
-        metaInstance_1.metaInstance.addEntity(target, newEntityMeta);
+        serviceInstance_1.serviceInstance.addEntity(target, newEntityMeta);
         // add createdAt, updatedAt and deletedAt
         var schema = {
             type: Date,
@@ -33,13 +33,13 @@ function Entity(entityMeta) {
             index: true,
             unique: false,
         };
-        metaInstance_1.metaInstance.addColumn(target, "createdAt", schema);
-        metaInstance_1.metaInstance.addColumn(target, "updatedAt", __assign({}, schema, { index: newEntityMeta.indexUpdatedAt }));
-        metaInstance_1.metaInstance.addColumn(target, "deletedAt", schema);
+        serviceInstance_1.serviceInstance.addColumn(target, "createdAt", schema);
+        serviceInstance_1.serviceInstance.addColumn(target, "updatedAt", __assign(__assign({}, schema), { index: newEntityMeta.indexUpdatedAt }));
+        serviceInstance_1.serviceInstance.addColumn(target, "deletedAt", schema);
         // validate from entity
-        var primaryKeys = metaInstance_1.metaInstance.getPrimaryKeys(target);
+        var primaryKeys = serviceInstance_1.serviceInstance.getPrimaryKeys(target);
         if (primaryKeys.length === 0) {
-            throw new __1.RedisOrmDecoratorError("No primary keys exist for this entity");
+            throw new __1.RedisOrmDecoratorError("(" + target.name + ") No primary keys exist for this entity");
         }
     };
 }
