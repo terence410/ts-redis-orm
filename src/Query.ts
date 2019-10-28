@@ -339,7 +339,11 @@ export class Query<T extends typeof BaseEntity> {
 
         // we add a default index
         if (whereIndexKeys.length === 0) {
-            this.where("createdAt", "<=", "+inf");
+            if (this._sortBy && serviceInstance.isIndexKey(this._entityType, this._sortBy.column)) {
+                this.where(this._sortBy.column as any, "<=", "+inf");
+            } else {
+                this.where("createdAt", "<=", "+inf");
+            }
             whereIndexKeys = Object.keys(this._whereIndexes);
         }
 
