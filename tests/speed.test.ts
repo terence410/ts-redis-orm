@@ -95,7 +95,7 @@ describe("Speed Test", () => {
 
         const total = await TestingSpeed.count();
         assert.equal(total, batch * iterate);
-    }).timeout(1000 * 10);
+    }).timeout(1000 * 100);
 
     it(`query: count`, async () => {
         let count = await TestingSpeed.count();
@@ -120,6 +120,15 @@ describe("Speed Test", () => {
 
         const newEntities2 = await TestingSpeed.query().findUniqueMany("number", entities.map(x => x.number));
         assert.equal(entities.length, newEntities2.length);
+
+        const sortByEntities = await TestingSpeed.query()
+            .where("createdAt", "<=", "+inf")
+            .sortBy("number", "desc").limit(limit).get();
+        assert.equal(sortByEntities.length, limit);
+
+        const sortByEntities2 = await TestingSpeed.query()
+            .sortBy("number", "desc").limit(limit).get();
+        assert.equal(sortByEntities2.length, limit);
     });
 });
 

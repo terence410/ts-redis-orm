@@ -28,7 +28,7 @@ export class Query<T extends typeof BaseEntity> {
     private _sortBy: {column: string, order: IOrder} | null = null;
     private _groupByColumn: string | null = null;
     private _groupByDateFormat: string = ""; // this is experimental feature
-    private _timer = new Date();
+    private _timer: [number, number] = [0, 0];
     private _timerType = "";
 
     constructor(private readonly _entityType: T) {
@@ -129,7 +129,7 @@ export class Query<T extends typeof BaseEntity> {
 
     public async get(): Promise<Array<InstanceType<T>>> {
         this._timerStart("get");
-        const result = this._get();
+        const result = await this._get();
         this._timerEnd("get");
         return result;
     }
@@ -498,28 +498,30 @@ export class Query<T extends typeof BaseEntity> {
 
     private _timerStart(type: string) {
         if (debug.enabled && this._timerType === "") {
-            this._timer = new Date();
+            this._timer = process.hrtime();
             this._timerType = type;
         }
     }
 
     private _timerEnd(type: string) {
         if (debug.enabled && this._timerType === type) {
-            const diff = new Date().getTime() - this._timer.getTime();
+            const diff = process.hrtime(this._timer);
+            const executionTime = (diff[1] / 1000000).toFixed(2);
             const indexWhere = `Index: ${JSON.stringify(this._whereIndexes)}`;
             const searchWhere = `Search: ${JSON.stringify(this._whereSearches)}`;
             const sort = `Sort by: ${JSON.stringify(this._sortBy)}`;
             const groupBy = `Group by: ${JSON.stringify(this._groupByColumn)}`;
             const offset = `offset: ${this._offset}`;
             const limit = `limit: ${this._limit}`;
-            debug(`(${this._entityType.name}) ${type} executed in ${diff}ms. ${indexWhere}. ${searchWhere}. ${sort}. ${groupBy}. ${offset}. ${limit}`);
+            debug(`(${this._entityType.name}) ${type} executed in ${executionTime}ms. ${indexWhere}. ${searchWhere}. ${sort}. ${groupBy}. ${offset}. ${limit}`);
         }
     }
 
     private _timerEndCustom(type: string, data: any) {
         if (debug.enabled && this._timerType === type) {
-            const diff = new Date().getTime() - this._timer.getTime();
-            debug(`(${this._entityType.name}) ${type} executed in ${diff}ms. ${data}`);
+            const diff = process.hrtime(this._timer);
+            const executionTime = (diff[1] / 1000000).toFixed(2);
+            debug(`(${this._entityType.name}) ${type} executed in ${executionTime}ms. ${data}`);
         }
     }
 
