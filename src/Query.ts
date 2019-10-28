@@ -1,7 +1,10 @@
+import Debug from "debug";
 import {BaseEntity} from "./BaseEntity";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
 import {parser} from "./parser";
 import {serviceInstance} from "./serviceInstance";
+
+const debug = Debug("tsredisorm/performance");
 
 import {
     IAggregateObject,
@@ -25,6 +28,8 @@ export class Query<T extends typeof BaseEntity> {
     private _sortBy: {column: string, order: IOrder} | null = null;
     private _groupByColumn: string | null = null;
     private _groupByDateFormat: string = ""; // this is experimental feature
+    private _timer = new Date();
+    private _timerType = "";
 
     constructor(private readonly _entityType: T) {
     }
@@ -32,10 +37,12 @@ export class Query<T extends typeof BaseEntity> {
     // region find
 
     public async find(idObject: IIdObject<InstanceType<T>>): Promise<InstanceType<T> | undefined> {
+        this._timerStart("find");
         const entityId = serviceInstance.convertAsEntityId(this._entityType, idObject);
         const primaryKeys = serviceInstance.getPrimaryKeys(this._entityType);
         
         // if we have a valid entity id
+        let entity: InstanceType<T> | undefined;
         if (entityId) {
             const entityStorageKey = serviceInstance.getEntityStorageKey(this._entityType, entityId);
 
@@ -48,23 +55,32 @@ export class Query<T extends typeof BaseEntity> {
             const storageStrings = await redis.hgetall(entityStorageKey);
             if (primaryKeys.every(primaryKey => primaryKey in storageStrings)) {
                 if ((storageStrings.deletedAt !== "NaN") === this._onlyDeleted) {
-                    return this._entityType.newFromStorageStrings(storageStrings);
+                    entity = this._entityType.newFromStorageStrings(storageStrings);
                 }
             }
         }
+
+        this._timerEndCustom("find", `id: ${JSON.stringify(idObject)}`);
+        return entity;
     }
 
     public async findMany(idObjects: Array<IIdObject<InstanceType<T>>>): Promise<Array<InstanceType<T>>> {
+        this._timerStart("findMany");
         const promises = [];
         for (const idObject of idObjects) {
             promises.push(this.find(idObject));
         }
 
         const result = await Promise.all(promises);
-        return result.filter(x => x) as Array<InstanceType<T>>;
+        const entities = result.filter(x => x) as Array<InstanceType<T>>;
+
+        this._timerEndCustom("findMany", `Total Id: ${idObjects.length}`);
+        return entities;
     }
 
     public async findUnique(column: IArgColumn<T>, value: IUniqueValueType): Promise<InstanceType<T> | undefined> {
+        this._timerStart("findUnique");
+
         if (!serviceInstance.isUniqueKey(this._entityType, column as string)) {
             throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid unique column: ${column}`);
         }
@@ -75,20 +91,29 @@ export class Query<T extends typeof BaseEntity> {
             value.toString(),
         );
 
+        let entity: InstanceType<T> | undefined;
         if (id) {
-            return await this.find(id);
+            entity = await this.find(id);
         }
+
+        this._timerEndCustom("findUnique", `Column: ${column}, Value: ${value}`);
+        return entity;
     }
 
     public async findUniqueMany(column: IArgColumn<T>, values: IUniqueValueType[]):
         Promise<Array<InstanceType<T>>> {
+        this._timerStart("findUniqueMany");
+
         const promises = [];
         for (const value of values) {
             promises.push(this.findUnique(column, value));
         }
 
         const result = await Promise.all(promises);
-        return result.filter(x => x) as Array<InstanceType<T>>;
+        const entities = result.filter(x => x) as Array<InstanceType<T>>;
+
+        this._timerEndCustom("findUniqueMany", `Column: ${column}, Total values: ${values.length}`);
+        return entities;
     }
 
     // endregion
@@ -98,13 +123,15 @@ export class Query<T extends typeof BaseEntity> {
     public async first(): Promise<InstanceType<T> | undefined> {
         this.offset(0);
         this.limit(1);
-
         const entities = await this.get();
         return entities.length ? entities[0] : undefined;
     }
 
     public async get(): Promise<Array<InstanceType<T>>> {
-        return this._get();
+        this._timerStart("get");
+        const result = this._get();
+        this._timerEnd("get");
+        return result;
     }
 
     public where(column: IArgColumn<T>, operator: IStringOperator | IIndexOperator, value: IValueType) {
@@ -233,31 +260,49 @@ export class Query<T extends typeof BaseEntity> {
     // region aggregate
 
     public async count(): Promise<number> {
-        return await this._aggregate("count", "") as number;
+        this._timerStart("count");
+        const result = await this._aggregate("count", "") as number;
+        this._timerEnd("count");
+        return result;
     }
 
     public async min(column: IArgColumn<T>) {
-        return await this._aggregate("min", column as string);
+        this._timerStart("min");
+        const result = await this._aggregate("min", column as string);
+        this._timerEnd("min");
+        return result;
     }
 
     public async max(column: IArgColumn<T>) {
-        return await this._aggregate("max", column as string);
+        this._timerStart("max");
+        const result = await this._aggregate("max", column as string);
+        this._timerEnd("max");
+        return result;
     }
 
     public async sum(column: IArgColumn<T>) {
-        return await this._aggregate("sum", column as string);
+        this._timerStart("sum");
+        const result = await this._aggregate("sum", column as string);
+        this._timerEnd("sum");
+        return result;
     }
 
     public async avg(column: IArgColumn<T>) {
-        return await this._aggregate("avg", column as string);
+        this._timerStart("avg");
+        const result = await this._aggregate("avg", column as string);
+        this._timerEnd("avg");
+        return result;
     }
 
     // endregion
 
-    // region: rank
+    // region rank
 
     public async rank(column: IArgColumn<T>, idObject: IIdObject<InstanceType<T>>, isReverse: boolean = false):
         Promise<number> {
+
+        this._timerStart("rank");
+
         if (!serviceInstance.isIndexKey(this._entityType, column as string)) {
             throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column}`);
         }
@@ -265,21 +310,23 @@ export class Query<T extends typeof BaseEntity> {
         const indexStorageKey = serviceInstance.getIndexStorageKey(this._entityType, column as string);
         const entityId = serviceInstance.convertAsEntityId(this._entityType, idObject);
 
+        let offset = -1;
         if (entityId) {
             const redis = await this._getRedis();
-            let offset: number | null = null;
+            let tempOffset: number | null = null;
             if (isReverse) {
-                offset = await redis.zrevrank(indexStorageKey, entityId);
+                tempOffset = await redis.zrevrank(indexStorageKey, entityId);
             } else {
-                offset = await redis.zrank(indexStorageKey, entityId);
+                tempOffset = await redis.zrank(indexStorageKey, entityId);
             }
 
-            if (offset !== null) {
-                return offset;
+            if (tempOffset !== null) {
+                offset = tempOffset;
             }
         }
 
-        return -1;
+        this._timerEnd("rank");
+        return offset;
     }
 
     // endregion
@@ -443,6 +490,33 @@ export class Query<T extends typeof BaseEntity> {
 
     private async _getRedis() {
         return await serviceInstance.getRedis(this._entityType);
+    }
+
+    private _timerStart(type: string) {
+        if (debug.enabled && this._timerType === "") {
+            this._timer = new Date();
+            this._timerType = type;
+        }
+    }
+
+    private _timerEnd(type: string) {
+        if (debug.enabled && this._timerType === type) {
+            const diff = new Date().getTime() - this._timer.getTime();
+            const indexWhere = `Index: ${JSON.stringify(this._whereIndexes)}`;
+            const searchWhere = `Search: ${JSON.stringify(this._whereSearches)}`;
+            const sort = `Sort by: ${JSON.stringify(this._sortBy)}`;
+            const groupBy = `Group by: ${JSON.stringify(this._groupByColumn)}`;
+            const offset = `offset: ${this._offset}`;
+            const limit = `limit: ${this._limit}`;
+            debug(`(${this._entityType.name}) ${type} executed in ${diff}ms. ${indexWhere}. ${searchWhere}. ${sort}. ${groupBy}. ${offset}. ${limit}`);
+        }
+    }
+
+    private _timerEndCustom(type: string, data: any) {
+        if (debug.enabled && this._timerType === type) {
+            const diff = new Date().getTime() - this._timer.getTime();
+            debug(`(${this._entityType.name}) ${type} executed in ${diff}ms. ${data}`);
+        }
     }
 
     // endregion

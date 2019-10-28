@@ -208,6 +208,7 @@ const main = async () => {
   - If you wanted to manage multiple environment, you can create redisorm.${NODE_ENV}.json, where ${NODE_ENV} eqauls to the process.env.NODE_ENV environment variable.
   - The library will search for the environment specific json file first. If it does not exist, it will try to load the redisorm.default.json.
 - Export env variable REDIS_ORM_CONFIG=custom.json for your own config file path
+- For debug, export debug=tsredisorm* 
 
 ```json5
 {

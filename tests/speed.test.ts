@@ -96,6 +96,31 @@ describe("Speed Test", () => {
         const total = await TestingSpeed.count();
         assert.equal(total, batch * iterate);
     }).timeout(1000 * 10);
+
+    it(`query: count`, async () => {
+        let count = await TestingSpeed.count();
+        count = await TestingSpeed.query().where("boolean", "=", true).count();
+    });
+
+    it(`query: find`, async () => {
+        const limit = 100;
+        const entities = await TestingSpeed.query().limit(limit).get();
+        assert.equal(entities.length, limit);
+
+        const entity = await TestingSpeed.query().find(entities[0].id);
+        assert.isDefined(entity);
+
+        const newEntities = await TestingSpeed.query().findMany(entities.map(x => x.id));
+        assert.equal(entities.length, newEntities.length);
+
+        if (entity) {
+            const newEntity = await TestingSpeed.query().findUnique("number", entity.number);
+            assert.isDefined(newEntity);
+        }
+
+        const newEntities2 = await TestingSpeed.query().findUniqueMany("number", entities.map(x => x.number));
+        assert.equal(entities.length, newEntities2.length);
+    });
 });
 
 describe("Clean up", () => {
