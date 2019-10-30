@@ -3,6 +3,8 @@ node_js:
   - "10"
 services:
   - redis-server
+before_deploy:
+  - npm run build
 deploy:
   provider: npm
   email: "$NPM_EMAIL"
