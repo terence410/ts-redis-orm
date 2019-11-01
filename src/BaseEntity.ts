@@ -287,6 +287,25 @@ export class BaseEntity {
         return entity;
     }
 
+    public getSchemas() {
+        const columns = serviceInstance.getColumns(this.constructor);
+        const indexKeys = serviceInstance.getIndexKeys(this.constructor);
+        const uniqueKeys = serviceInstance.getUniqueKeys(this.constructor);
+        const primaryKeys = serviceInstance.getPrimaryKeys(this.constructor);
+        const autoIncrementKey = serviceInstance.getAutoIncrementKey(this.constructor);
+        const entityMeta = serviceInstance.getEntityMeta(this.constructor);
+        return {
+            columns,
+            indexKeys,
+            uniqueKeys,
+            primaryKeys,
+            autoIncrementKey,
+            table: entityMeta.table,
+            connection: entityMeta.connection,
+            indexUpdatedAt: entityMeta.indexUpdatedAt,
+        };
+    }
+
     public toJSON() {
         return this.getValues();
     }

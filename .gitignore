@@ -5,6 +5,7 @@
 
 # Custom
 build
+package-lock.json
 
 # User-specific stuff
 .idea/**/workspace.xml
