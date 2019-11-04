@@ -110,6 +110,30 @@ export class BaseEntity {
         return eventEmitters.getEventEmitter(this);
     }
 
+    public static getSchemas() {
+        const schemas = serviceInstance.getSchemas(this);
+        const indexKeys = serviceInstance.getIndexKeys(this);
+        const uniqueKeys = serviceInstance.getUniqueKeys(this);
+        const primaryKeys = serviceInstance.getPrimaryKeys(this);
+        const autoIncrementKey = serviceInstance.getAutoIncrementKey(this);
+        const entityMeta = serviceInstance.getEntityMeta(this);
+
+        // convert to column objects
+        const columnTypes: any = Object.keys(schemas)
+            .reduce<object>((a, b) => Object.assign(a, {[b]: schemas[b].type}), {});
+
+        return {
+            columnTypes,
+            indexKeys,
+            uniqueKeys,
+            primaryKeys,
+            autoIncrementKey,
+            table: entityMeta.table,
+            connection: entityMeta.connection,
+            indexUpdatedAt: entityMeta.indexUpdatedAt,
+        };
+    }
+
     // endregion
 
     // region static method: import/export
@@ -287,24 +311,6 @@ export class BaseEntity {
         return entity;
     }
 
-    public getSchemas() {
-        const columns = serviceInstance.getColumns(this.constructor);
-        const indexKeys = serviceInstance.getIndexKeys(this.constructor);
-        const uniqueKeys = serviceInstance.getUniqueKeys(this.constructor);
-        const primaryKeys = serviceInstance.getPrimaryKeys(this.constructor);
-        const autoIncrementKey = serviceInstance.getAutoIncrementKey(this.constructor);
-        const entityMeta = serviceInstance.getEntityMeta(this.constructor);
-        return {
-            columns,
-            indexKeys,
-            uniqueKeys,
-            primaryKeys,
-            autoIncrementKey,
-            table: entityMeta.table,
-            connection: entityMeta.connection,
-            indexUpdatedAt: entityMeta.indexUpdatedAt,
-        };
-    }
 
     public toJSON() {
         return this.getValues();

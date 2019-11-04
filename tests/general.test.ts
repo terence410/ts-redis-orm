@@ -58,6 +58,7 @@ describe("General Test: Internal", () => {
 
 describe("General Test: Create Entity", () => {
     it("new entity", async () => {
+        console.log(TestingGeneral.getSchemas());
         const entity = new TestingGeneral();
         assert.isTrue(entity.isNew);
         assert.isFalse(isNaN(entity.createdAt.getTime()));
