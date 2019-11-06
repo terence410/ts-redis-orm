@@ -1,4 +1,5 @@
 import {assert, expect } from "chai";
+import clone from "clone";
 import {BaseEntity, Column, Entity} from "../src/";
 import {serviceInstance} from "../src/serviceInstance";
 
@@ -57,8 +58,12 @@ describe("General Test: Internal", () => {
 });
 
 describe("General Test: Create Entity", () => {
+    it("clone entity", async () => {
+        const entity = new TestingGeneral();
+        const newEntity = clone(entity);
+    });
+
     it("new entity", async () => {
-        console.log(TestingGeneral.getSchemas());
         const entity = new TestingGeneral();
         assert.isTrue(entity.isNew);
         assert.isFalse(isNaN(entity.createdAt.getTime()));
