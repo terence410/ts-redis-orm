@@ -1,4 +1,6 @@
 class Parser {
+    private _ISORegex = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*))(?:Z|(\+|-)([\d|:]*))?$/;
+
     public parseStorageStringToValue(type: any, storageString: string): any {
         let value: any;
         switch (type) {
@@ -20,7 +22,7 @@ class Parser {
 
             case Array:
                 try {
-                    const temp = JSON.parse(storageString);
+                    const temp = JSON.parse(storageString, this._parseDate);
                     if (Array.isArray(temp)) {
                         value = temp;
                     } else {
@@ -33,7 +35,7 @@ class Parser {
 
             case Object:
                 try {
-                    value = JSON.parse(storageString);
+                    value = JSON.parse(storageString, this._parseDate);
                 } catch (err) {
                     value = undefined;
                 }
@@ -91,6 +93,16 @@ class Parser {
         }
 
         return storageString;
+    }
+
+    private _parseDate(key: string, value: any): any {
+        if (typeof value === "string") {
+            if (value.match(this._ISORegex)) {
+                return new Date(value);
+            }
+        }
+
+        return value;
     }
 }
 

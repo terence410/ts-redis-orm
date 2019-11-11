@@ -1,6 +1,11 @@
 import {assert, expect } from "chai";
 import {BaseEntity, Column, Entity} from "../src/";
 
+type IObject = undefined | {
+    name: string;
+    createdAt: Date;
+};
+
 @Entity({connection: "default", table: "testing_export"})
 class TestingExport extends BaseEntity {
     @Column({primary: true, autoIncrement: true})
@@ -25,7 +30,7 @@ class TestingExport extends BaseEntity {
     public array: number[] = [];
 
     @Column()
-    public object: any;
+    public object: IObject;
 }
 
 @Entity({connection: "default", table: "testing_new_export"})
@@ -57,7 +62,7 @@ describe("Export Test", () => {
             entity.date = new Date(now.getTime() * Math.random());
             entity.boolean = Math.random() > 0.5;
             entity.array = new Array(Math.random() * 20 | 0).fill(1);
-            entity.object = {};
+            entity.object = {name: "redis", createdAt: new Date()};
             promises.push(entity.save());
         }
         await Promise.all(promises);
@@ -75,9 +80,11 @@ describe("Export Test", () => {
     });
 
     it("export and import from file", async () => {
+        const entity = await TestingExport.query().limit(1).first();
         await TestingExport.export(exportFile);
         await TestingExport.truncate("TestingExport");
         await TestingExport.import(exportFile);
+        const foundEntity = await TestingExport.query().limit(1).first();
 
         const currentAllExist = await TestingExport.all();
         const currentAllDeleted = await TestingExport.query().onlyDeleted().get();
@@ -91,6 +98,17 @@ describe("Export Test", () => {
 
         for (let i = 0; i < allDeleted.length; i++) {
             assert.deepEqual(allDeleted[i].getValues(), currentAllDeleted[i].getValues());
+        }
+
+        // validate the entity
+        assert.isDefined(entity);
+        assert.isDefined(foundEntity);
+
+        // validate object date is correct
+        if (entity && foundEntity && entity.object && foundEntity.object) {
+            assert.isTrue(entity.object.createdAt instanceof Date);
+            assert.isTrue(foundEntity.object.createdAt instanceof Date);
+            assert.equal(entity.object.createdAt.getTime(), foundEntity.object.createdAt.getTime());
         }
     });
 

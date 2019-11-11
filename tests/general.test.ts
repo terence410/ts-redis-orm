@@ -4,6 +4,9 @@ import {BaseEntity, Column, Entity} from "../src/";
 import {serviceInstance} from "../src/serviceInstance";
 
 type NullableString = string | null;
+type IObject = undefined | {
+    createdAt: Date;
+};
 
 @Entity({connection: "default", table: "testing_general"})
 class TestingGeneral extends BaseEntity {
@@ -32,7 +35,7 @@ class TestingGeneral extends BaseEntity {
     public array: number[] = [];
 
     @Column()
-    public object: any;
+    public object: IObject;
 }
 
 describe("General Test: Internal", () => {
@@ -91,6 +94,7 @@ describe("General Test: Create Entity", () => {
         const entity = new TestingGeneral();
         entity.id = id;
         entity.uniqueNumber = id;
+        entity.object = {createdAt: new Date()};
         await entity.save();
         assert.isFalse(entity.isNew);
         assert.equal(entity.getEntityId(), id.toString());
@@ -99,6 +103,11 @@ describe("General Test: Create Entity", () => {
         assert.isDefined(newEntity);
         if (newEntity) {
             assert.deepEqual(entity.getValues(), newEntity.getValues());
+
+            if (newEntity.object) {
+                assert.isTrue(newEntity.object.createdAt instanceof Date);
+                assert.equal(entity.object.createdAt.getTime(), newEntity.object.createdAt.getTime());
+            }
         }
     });
 
@@ -381,7 +390,7 @@ describe("General Test: Create Entity", () => {
             entity.boolean = Math.random() > 0.5;
             entity.array = new Array(Math.random() * 20 | 0).fill(1);
             entity.string1 = Math.random().toString();
-            entity.object = {};
+            entity.object = {createdAt: new Date()};
             promises.push(entity.save());
         }
         await Promise.all(promises);
