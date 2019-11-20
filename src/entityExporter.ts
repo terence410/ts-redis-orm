@@ -12,7 +12,7 @@ class EntityExporter {
             const meta = {
                 createdAt: new Date(),
                 class: (entityType as any).name,
-                table: serviceInstance.getTable(entityType),
+                table: serviceInstance.getDefaultTable(entityType),
                 schemas: serviceInstance.getSchemasJson(entityType),
                 total: entities.length,
             };
@@ -35,7 +35,7 @@ class EntityExporter {
         });
     }
 
-    public async import(entityType: object, file: string, skipSchemasCheck: boolean = false) {
+    public async import(entityType: object, file: string, skipSchemasCheck: boolean, table: string) {
         const readStream = fs.createReadStream(file, {encoding: "utf8"});
         const r1 = readline.createInterface({input: readStream});
 
@@ -93,6 +93,7 @@ class EntityExporter {
                     const values = valuesList.shift();
                     try {
                         const entity = new (entityType as any)() as BaseEntity;
+                        entity.setTable(table);
                         entity.set(values);
                         await entity.save();
 

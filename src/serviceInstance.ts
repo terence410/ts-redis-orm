@@ -1,3 +1,4 @@
+import Debug from "debug";
 import * as fs from "fs";
 import IORedis from "ioredis";
 import * as path from "path";
@@ -5,6 +6,8 @@ import {configLoader} from "./configLoader";
 import {RedisOrmDecoratorError} from "./errors/RedisOrmDecoratorError";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
 import {IEntityMeta, IRedisContainer, ISchema} from "./types";
+
+const debug = Debug("tsredisorm/default");
 
 const IOREDIS_ERROR_RETRY_DELAY = 1000;
 const IOREDIS_CONNECT_TIMEOUT = 10000;
@@ -67,7 +70,7 @@ class ServiceInstance {
         return this._entityMetas.get(target) as IEntityMeta;
     }
 
-    public getTable(target: object): string {
+    public getDefaultTable(target: object): string {
         return this.getEntityMeta(target).table;
     }
 
@@ -204,21 +207,22 @@ class ServiceInstance {
                 error: null,
             };
             entityMeta.redisMaster = redisContainer;
+
+            debug(`(${(target as any).name}) created redis connection`);
         }
 
         if (registerRedis) {
-            await this._registerRedis(target, redisContainer);
+            await this._registerLuaLock(target, redisContainer);
         }
 
         return redisContainer.redis;
     }
 
-    public async compareSchemas(target: object): Promise<string[]> {
-        const redis = await serviceInstance.getRedis(target);
+    public async compareSchemas(target: object, table: string): Promise<string[]> {
         let errors: string[] = [];
 
         try {
-            const remoteSchemas = await this.getRemoteSchemas(target, redis);
+            const remoteSchemas = await this.getRemoteSchemas(target, table);
             if (remoteSchemas) {
                 // we do such indirect case is to convert primitive types to strings
                 const clientSchemasJson = this.getSchemasJson(target);
@@ -233,8 +237,9 @@ class ServiceInstance {
         return errors;
     }
 
-    public async getRemoteSchemas(target: object, redis: IORedis.Redis): Promise<{[key: string]: ISchema} | null> {
-        const metaStorageKey = this.getMetaStorageKey(target);
+    public async getRemoteSchemas(target: object, table: string): Promise<{[key: string]: ISchema} | null> {
+        const redis = await serviceInstance.getRedis(target);
+        const metaStorageKey = this.getMetaStorageKey(table);
         const hashKey = "schemas";
         const remoteSchemasString = await redis.hget(metaStorageKey, hashKey);
         if (remoteSchemasString) {
@@ -244,41 +249,31 @@ class ServiceInstance {
         return null;
     }
 
-    public async resyncDb(target: object) {
-        const clientSchemasJson = this.getSchemasJson(target);
-        const metaStorageKey = this.getMetaStorageKey(target);
-        const hashKey = "schemas";
-
-        // force update schema
-        const redis = await this.getRedis(target, false);
-        await redis.hset(metaStorageKey, hashKey, clientSchemasJson);
-    }
-
     // endregion
 
     // region public methods: storage key
 
-    public getEntityStorageKey(target: object, entityId: string) {
-        return `entity:${this.getTable(target)}:${entityId}`;
+    public getEntityStorageKey(table: string, entityId: string) {
+        return `entity:${table}:${entityId}`;
     }
 
-    public getIndexStorageKey(target: object, column: string) {
-        return `index:${this.getTable(target)}:${column}`;
+    public getIndexStorageKey(table: string, column: string) {
+        return `index:${table}:${column}`;
     }
 
-    public getUniqueStorageKey(target: object, column: string) {
-        return `unique:${this.getTable(target)}:${column}`;
+    public getUniqueStorageKey(table: string, column: string) {
+        return `unique:${table}:${column}`;
     }
 
-    public getMetaStorageKey(target: object) {
-        return `meta:${this.getTable(target)}`;
+    public getMetaStorageKey(table: string) {
+        return `meta:${table}`;
     }
 
     // endregion
 
     // region private methods
 
-    private async _registerRedis(target: object, redisContainer: IRedisContainer) {
+    private async _registerLuaLock(target: object, redisContainer: IRedisContainer) {
         // allow multiple call to registerLua for same model if it's not completed registering yet
         while (redisContainer.connecting) {
             await new Promise(resolve => setTimeout(resolve, IOREDIS_REIGSTER_LUA_DELAY));
@@ -289,7 +284,9 @@ class ServiceInstance {
 
             // register lua
             try {
-                await this._registerLau(target, redisContainer);
+                await this._registerLua(target, redisContainer);
+
+                debug(`(${(target as any).name}) registered lua`);
             } catch (err) {
                 redisContainer.error = err;
             }
@@ -299,7 +296,7 @@ class ServiceInstance {
         }
     }
     
-    private async _registerLau(target: object, redisContainer: IRedisContainer) {
+    private async _registerLua(target: object, redisContainer: IRedisContainer) {
         try {
             const luaShared = fs.readFileSync(path.join(__dirname, "../lua/shared.lua"), {encoding: "utf8"});
 

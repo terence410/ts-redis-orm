@@ -1,3 +1,4 @@
+import Debug from "debug";
 import {entityExporter} from "./entityExporter";
 import {RedisOrmEntityError} from "./errors/RedisOrmEntityError";
 import {RedisOrmSchemaError} from "./errors/RedisOrmSchemaError";
@@ -7,12 +8,16 @@ import {Query} from "./Query";
 import {serviceInstance} from "./serviceInstance";
 import {IArgValues, IEvent, IIdObject, IInstanceValues, ISaveResult} from "./types";
 
+// debug
+const debug = Debug("tsredisorm/default");
+
 export class BaseEntity {
     // region static methods
 
-    public static async connect() {
+    public static async connect(table: string = "") {
         // validate the schema
-        const schemaErrors = await serviceInstance.compareSchemas(this);
+        table = table || serviceInstance.getDefaultTable(this);
+        const schemaErrors = await serviceInstance.compareSchemas(this, table);
         if (schemaErrors.length) {
             throw new RedisOrmSchemaError(`(${this.name}) Invalid Schemas`, schemaErrors);
         }
@@ -58,19 +63,19 @@ export class BaseEntity {
         return await serviceInstance.getRedis(this, false);
     }
 
-    public static async resyncDb<T extends typeof BaseEntity>(this: T) {
+    public static async resyncDb<T extends typeof BaseEntity>(this: T, table: string = "") {
         // get redis,
+        table = table || serviceInstance.getDefaultTable(this);
         const redis = await serviceInstance.getRedis(this);
-        const remoteSchemas = await serviceInstance.getRemoteSchemas(this, redis);
+        const remoteSchemas = await serviceInstance.getRemoteSchemas(this, table);
 
         // we resync only if we found any schema exist
         if (remoteSchemas) {
             // prepare arguments
-            const tableName = serviceInstance.getTable(this);
             const keys: [] = [];
             const params = [
                 serviceInstance.getSchemasJson(this),
-                tableName,
+                table,
             ];
 
             // remove everything
@@ -80,29 +85,35 @@ export class BaseEntity {
             if (saveResult.error) {
                 throw new RedisOrmEntityError(`(${this.name}) ${saveResult.error}`);
             }
+            
+            debug(`(${this.name}, ${table}) resync db complete`);
+        } else {
+            debug(`(${this.name}, ${table}) no schemas exist for resync db`);
         }
     }
 
-    public static async truncate(className: string) {
+    public static async truncate(className: string, table: string = "") {
         if (className !== this.name) {
             throw new RedisOrmEntityError(`(${this.name}) You need to provide the class name for truncate`);
         }
 
         // get redis,
+        table = table || serviceInstance.getDefaultTable(this);
         const redis = await serviceInstance.getRedis(this);
-        const remoteSchemas = await serviceInstance.getRemoteSchemas(this, redis);
+        const remoteSchemas = await serviceInstance.getRemoteSchemas(this, table);
 
         // we truncate only if we found any schema exist
         if (remoteSchemas) {
             // prepare arguments
-            const tableName = serviceInstance.getTable(this);
             const keys: [] = [];
-            const params = [
-                tableName,
-            ];
+            const params = [table];
 
             // remove everything
             await (redis as any).commandAtomicTruncate(keys, params);
+
+            debug(`(${this.name}, ${table}) truncate complete`);
+        } else {
+            debug(`(${this.name}, ${table}) no schemas exist for truncate`);
         }
     }
 
@@ -138,8 +149,9 @@ export class BaseEntity {
 
     // region static method: import/export
 
-    public static async export(file: string) {
-        const all = await this.all();
+    public static async export(file: string, table: string = "") {
+        table = table || serviceInstance.getDefaultTable(this);
+        const all = await this.query().setTable(table).get();
         const allDeleted = await this.query().onlyDeleted().get();
         await this.exportEntities([...all, ...allDeleted], file);
     }
@@ -148,17 +160,15 @@ export class BaseEntity {
         await entityExporter.exportEntities(this, entities, file);
     }
 
-    public static getImportFileMeta() {
-        //
-    }
-
-    public static async import(file: string, skipSchemasCheck: boolean = false) {
-        await entityExporter.import(this, file, skipSchemasCheck);
+    public static async import(file: string, skipSchemasCheck: boolean = false, table: string = "") {
+        table = table || serviceInstance.getDefaultTable(this);
+        await entityExporter.import(this, file, skipSchemasCheck, table);
     }
 
     // endregion
 
     // region constructor / variables
+    private _table: string = "";
 
     // flags
     private _isNew: boolean = true;
@@ -176,6 +186,7 @@ export class BaseEntity {
         const now = new Date();
         this.createdAt = now;
         this.updatedAt = now;
+        this._table = serviceInstance.getDefaultTable(this.constructor);
     }
 
     // endregion
@@ -221,6 +232,14 @@ export class BaseEntity {
     // endregion
 
     // region public methods
+
+    public setTable(table: string) {
+        this._table = table;
+    }
+
+    public getTable() {
+        return this._table;
+    }
 
     public getEntityId(): string {
         const primaryKeys = serviceInstance.getPrimaryKeys(this.constructor).sort();
@@ -311,7 +330,6 @@ export class BaseEntity {
         return entity;
     }
 
-
     public toJSON() {
         return this.getValues();
     }
@@ -379,7 +397,6 @@ export class BaseEntity {
         changes.deletedAt = parser.parseValueToStorageString(Date, new Date(Number.NaN));
 
         // prepare redis lua command parameters
-        const tableName = serviceInstance.getTable(this.constructor);
         const indexKeys = serviceInstance.getIndexKeys(this.constructor);
         const uniqueKeys = serviceInstance.getUniqueKeys(this.constructor);
         const autoIncrementKey = serviceInstance.getAutoIncrementKey(this.constructor);
@@ -398,7 +415,7 @@ export class BaseEntity {
             serviceInstance.getSchemasJson(this.constructor),
             entityId,
             this.isNew,
-            tableName,
+            this._table,
             autoIncrementKey,
             JSON.stringify(indexKeys),
             JSON.stringify(uniqueKeys),
@@ -413,7 +430,7 @@ export class BaseEntity {
 
         if (saveResult.error) {
             if (saveResult.error === "Invalid Schemas") {
-                const schemaErrors = await serviceInstance.compareSchemas(this.constructor);
+                const schemaErrors = await serviceInstance.compareSchemas(this.constructor, this._table);
                 throw new RedisOrmSchemaError(`(${this.constructor.name}) ${saveResult.error}`, schemaErrors);
             } else {
                 throw new RedisOrmEntityError(`(${this.constructor.name}) ${saveResult.error}`);
@@ -478,7 +495,6 @@ export class BaseEntity {
 
         // prepare redis lua command parameters
         const entityId = this.getEntityId();
-        const tableName = serviceInstance.getTable(this.constructor);
         const indexKeys = serviceInstance.getIndexKeys(this.constructor);
         const uniqueKeys = serviceInstance.getUniqueKeys(this.constructor);
 
@@ -487,7 +503,7 @@ export class BaseEntity {
             serviceInstance.getSchemasJson(this.constructor),
             entityId,
             !forceDelete,
-            tableName,
+            this._table,
             deletedAt.getTime(),
             JSON.stringify(indexKeys),
             JSON.stringify(uniqueKeys),

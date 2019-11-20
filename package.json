@@ -16,6 +16,7 @@
     "test-export": "mocha --exit --timeout 10000 -r ts-node/register tests/export.test.ts",
     "test-decorator": "mocha --exit --timeout 10000 -r ts-node/register tests/decorator.test.ts",
     "test-rank": "mocha --exit --timeout 10000 -r ts-node/register tests/rank.test.ts",
+    "test-tables": "mocha --exit --timeout 10000 -r ts-node/register tests/tables.test.ts",
     "patch": "npm version patch",
     "build": "tsc"
   },

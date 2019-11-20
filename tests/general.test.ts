@@ -52,7 +52,7 @@ describe("General Test: Internal", () => {
     });
 
     it("meta", async () => {
-        assert.equal(serviceInstance.getTable(TestingGeneral), "testing_general");
+        assert.equal(serviceInstance.getDefaultTable(TestingGeneral), "testing_general");
         assert.deepEqual(serviceInstance.getPrimaryKeys(TestingGeneral), ["id"]);
         assert.equal(serviceInstance.getAutoIncrementKey(TestingGeneral), "id");
         assert.includeMembers(serviceInstance.getIndexKeys(TestingGeneral), ["uniqueNumber", "date", "boolean"]);

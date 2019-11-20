@@ -3,9 +3,6 @@ import {BaseEntity} from "./BaseEntity";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
 import {parser} from "./parser";
 import {serviceInstance} from "./serviceInstance";
-
-const debug = Debug("tsredisorm/performance");
-
 import {
     IAggregateObject,
     IArgColumn,
@@ -19,7 +16,11 @@ import {
     IWhereStringType,
 } from "./types";
 
+// debug
+const debugPerformance = Debug("tsredisorm/performance");
+
 export class Query<T extends typeof BaseEntity> {
+    private _table: string  = "";
     private _onlyDeleted = false;
     private _offset = 0;
     private _limit = -1;
@@ -32,7 +33,17 @@ export class Query<T extends typeof BaseEntity> {
     private _timerType = "";
 
     constructor(private readonly _entityType: T) {
+        this._table = serviceInstance.getDefaultTable(_entityType);
     }
+
+    // region operation
+
+    public setTable(table: string) {
+        this._table = table;
+        return this;
+    }
+
+    // endregion
 
     // region find
 
@@ -44,7 +55,7 @@ export class Query<T extends typeof BaseEntity> {
         // if we have a valid entity id
         let entity: InstanceType<T> | undefined;
         if (entityId) {
-            const entityStorageKey = serviceInstance.getEntityStorageKey(this._entityType, entityId);
+            const entityStorageKey = serviceInstance.getEntityStorageKey(this._table, entityId);
 
             if (!entityStorageKey) {
                 throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid id ${JSON.stringify(idObject)}`);
@@ -56,6 +67,8 @@ export class Query<T extends typeof BaseEntity> {
             if (primaryKeys.every(primaryKey => primaryKey in storageStrings)) {
                 if ((storageStrings.deletedAt !== "NaN") === this._onlyDeleted) {
                     entity = this._entityType.newFromStorageStrings(storageStrings);
+                    // update the table
+                    entity.setTable(this._table);
                 }
             }
         }
@@ -87,7 +100,7 @@ export class Query<T extends typeof BaseEntity> {
 
         const redis = await this._getRedis();
         const id = await redis.hget(
-            serviceInstance.getUniqueStorageKey(this._entityType, column as string),
+            serviceInstance.getUniqueStorageKey(this._table, column as string),
             value.toString(),
         );
 
@@ -138,7 +151,7 @@ export class Query<T extends typeof BaseEntity> {
         const columnString = column as string;
         if (serviceInstance.isIndexKey(this._entityType, columnString)) {
             if (this._onlyDeleted) {
-                throw new RedisOrmQueryError(`(${this._entityType.name}) You cannot apply extra where indexing clause for only deleted query`);
+                throw new RedisOrmQueryError(`(${this._entityType.name}) You cannot apply indexing clause for onlyDeleted query`);
             }
 
             if (!serviceInstance.isIndexKey(this._entityType, columnString)) {
@@ -307,7 +320,7 @@ export class Query<T extends typeof BaseEntity> {
             throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column}`);
         }
 
-        const indexStorageKey = serviceInstance.getIndexStorageKey(this._entityType, column as string);
+        const indexStorageKey = serviceInstance.getIndexStorageKey(this._table, column as string);
         const entityId = serviceInstance.convertAsEntityId(this._entityType, idObject);
 
         let offset = -1;
@@ -359,7 +372,7 @@ export class Query<T extends typeof BaseEntity> {
             whereSearchKeys.length,
             this._offset,
             this._limit,
-            serviceInstance.getTable(this._entityType),
+            this._table,
             "", // aggregate
             "", // aggregate column
             "", // group by column
@@ -397,7 +410,7 @@ export class Query<T extends typeof BaseEntity> {
         const order = this._sortBy ? this._sortBy.order : "asc";
 
         // redis params
-        const indexStorageKey = serviceInstance.getIndexStorageKey(this._entityType, column);
+        const indexStorageKey = serviceInstance.getIndexStorageKey(this._table, column);
         const extraParams = ["LIMIT", this._offset.toString(), this._limit.toString()];
 
         // collect result ids
@@ -440,7 +453,7 @@ export class Query<T extends typeof BaseEntity> {
             whereSearchKeys.length,
             this._limit, // not used
             this._offset, // not used
-            serviceInstance.getTable(this._entityType),
+            this._table,
             aggregate,
             aggregateColumn,
             this._groupByColumn,
@@ -484,9 +497,9 @@ export class Query<T extends typeof BaseEntity> {
         const redis = await this._getRedis();
 
         if (max === "+inf" && min === "-inf") {
-            count = await redis.zcard(serviceInstance.getIndexStorageKey(this._entityType, column));
+            count = await redis.zcard(serviceInstance.getIndexStorageKey(this._table, column));
         } else {
-            count = await redis.zcount(serviceInstance.getIndexStorageKey(this._entityType, column), min, max);
+            count = await redis.zcount(serviceInstance.getIndexStorageKey(this._table, column), min, max);
         }
 
         return count;
@@ -497,14 +510,14 @@ export class Query<T extends typeof BaseEntity> {
     }
 
     private _timerStart(type: string) {
-        if (debug.enabled && this._timerType === "") {
+        if (debugPerformance.enabled && this._timerType === "") {
             this._timer = process.hrtime();
             this._timerType = type;
         }
     }
 
     private _timerEnd(type: string) {
-        if (debug.enabled && this._timerType === type) {
+        if (debugPerformance.enabled && this._timerType === type) {
             const diff = process.hrtime(this._timer);
             const executionTime = (diff[1] / 1000000).toFixed(2);
             const indexWhere = `Index: ${JSON.stringify(this._whereIndexes)}`;
@@ -513,15 +526,15 @@ export class Query<T extends typeof BaseEntity> {
             const groupBy = `Group by: ${JSON.stringify(this._groupByColumn)}`;
             const offset = `offset: ${this._offset}`;
             const limit = `limit: ${this._limit}`;
-            debug(`(${this._entityType.name}) ${type} executed in ${executionTime}ms. ${indexWhere}. ${searchWhere}. ${sort}. ${groupBy}. ${offset}. ${limit}`);
+            debugPerformance(`(${this._entityType.name}, ${this._table}) ${type} executed in ${executionTime}ms. ${indexWhere}. ${searchWhere}. ${sort}. ${groupBy}. ${offset}. ${limit}`);
         }
     }
 
     private _timerEndCustom(type: string, data: any) {
-        if (debug.enabled && this._timerType === type) {
+        if (debugPerformance.enabled && this._timerType === type) {
             const diff = process.hrtime(this._timer);
             const executionTime = (diff[1] / 1000000).toFixed(2);
-            debug(`(${this._entityType.name}) ${type} executed in ${executionTime}ms. ${data}`);
+            debugPerformance(`(${this._entityType.name}, ${this._table}) ${type} executed in ${executionTime}ms. ${data}`);
         }
     }
 

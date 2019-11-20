@@ -174,7 +174,19 @@ const main = async () => {
     events.on("delete", (entity) => { /* */ });
     events.on("forceDelete", (entity) => { /* */ });
     events.on("restore", (entity) => { /* */ });
-
+    
+    // dynamic tables
+    const table = "another-table";
+    await MyEntity.connect(table);
+    await MyEntity.truncate("MyEntity", table);
+    await MyEntity.export("./file.txt", table);
+    await MyEntity.import("./file.txt", false, table);
+    const entity10 = new MyEntity();
+    entity10.setTable(table);
+    const currentTable = entity10.getTable();
+    entity10.id = 10;
+    await entity10.save();
+    const entity10a = await MyEntity.query().setTable(table).find(10);
     
     // errors
     try {
@@ -241,6 +253,8 @@ await entity.save();
 ```
 
 # Limitation and Usage Remarks
+- Schema check is auto enabled when you do connect(), save(), delete(), restore(). 
+- Schema check is disabled for query(), truncate() and resyncDb().
 - Redis Cluster is not supported. While you can try to break down each Entity to use different Redis DB.
 - High query performance can only be achieved with proper index on the column with single where clause. Multiple where clause is supported, but the performance is not guaranteed. 
 - One redis connection is created for each Entity Type.

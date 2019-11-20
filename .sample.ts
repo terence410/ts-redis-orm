@@ -13,7 +13,7 @@ class MyEntity extends BaseEntity {
     @Column({primary: true, autoIncrement: true})
     public id: number = 0;
 
-    @Column({primary: true, unique: true})
+    @Column({unique: true})
     public string: string = "";
 
     @Column({unique: true, index: true})
@@ -145,6 +145,19 @@ const main = async () => {
     events.on("delete", (entity) => { /* */ });
     events.on("forceDelete", (entity) => { /* */ });
     events.on("restore", (entity) => { /* */ });
+
+    // dynamic tables
+    const table = "another-table";
+    await MyEntity.connect(table);
+    await MyEntity.truncate("MyEntity", table);
+    await MyEntity.export("./file.txt", table);
+    await MyEntity.import("./file.txt", false, table);
+    const entity10 = new MyEntity();
+    entity10.setTable(table);
+    const currentTable = entity10.getTable();
+    entity10.id = 10;
+    await entity10.save();
+    const entity10a = await MyEntity.query().setTable(table).find(10);
 
     // errors
     try {
