@@ -3,11 +3,11 @@ import * as path from "path";
 
 class ConfigLoader {
     public getConfigFile(): string | null {
-        const name = process.env.NODE_ENV || "default";
         let configFiles = [`redisorm.default.json`];
 
         if (process.env.NODE_ENV) {
-            configFiles.push(`redisorm.${name}.json`);
+            const name = process.env.NODE_ENV || "default";
+            configFiles.splice(0, 0, `redisorm.${name}.json`);
         }
 
         if (process.env.REDISORM_CONFIG_PATH) {
