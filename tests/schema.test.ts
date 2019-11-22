@@ -147,7 +147,7 @@ describe("Schema Test", () => {
             await TestingSchema3.resyncDb();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "(TestingSchema3) Resync can only apply to same primary keys. The remote primary key: id is not the same or not exist in current schemas");
+            assert.equal(err.message, "(TestingSchema3, testing_schema) Resync can only apply to same primary keys. The remote primary key: id is not the same or not exist in current schemas");
         }
     });
 
@@ -193,7 +193,7 @@ describe("Schema Test", () => {
                 await duplicatedEntity.restore();
                 assert.isTrue(false);
             } catch (err) {
-                assert.equal(err.message, `(${TestingSchema1.name}) Unique key: unique1 with value: 0 already exist on entity id: 1. Current entity id: ${duplicatedEntity.id}`);
+                assert.equal(err.message, `(${TestingSchema1.name}, testing_schema) Unique key: unique1 with value: 0 already exist on entity id: 1. Current entity id: ${duplicatedEntity.id}`);
             }
 
             // update the value and restore again

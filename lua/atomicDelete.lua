@@ -10,7 +10,7 @@ local result = { entityId = entityId }
 -- verify schemas
 local isVerified = verifySchemas(tableName, clientSchemasString)
 if not isVerified then
-    return error("Invalid Schemas")
+    return error("Mismatch with remote Schemas")
 end
 
 -- entity id key

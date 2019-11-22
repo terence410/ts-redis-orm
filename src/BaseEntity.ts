@@ -19,7 +19,7 @@ export class BaseEntity {
         table = table || serviceInstance.getDefaultTable(this);
         const schemaErrors = await serviceInstance.compareSchemas(this, table);
         if (schemaErrors.length) {
-            throw new RedisOrmSchemaError(`(${this.name}) Invalid Schemas`, schemaErrors);
+            throw new RedisOrmSchemaError(`(${this.name}, ${table}) Mismatch with remote Schemas`, schemaErrors);
         }
 
         return await serviceInstance.getRedis(this);
@@ -83,7 +83,7 @@ export class BaseEntity {
             const saveResult = JSON.parse(commandResult) as ISaveResult;
 
             if (saveResult.error) {
-                throw new RedisOrmEntityError(`(${this.name}) ${saveResult.error}`);
+                throw new RedisOrmEntityError(`(${this.name}, ${table}) ${saveResult.error}`);
             }
             
             debug(`(${this.name}, ${table}) resync db complete`);
@@ -94,7 +94,7 @@ export class BaseEntity {
 
     public static async truncate(className: string, table: string = "") {
         if (className !== this.name) {
-            throw new RedisOrmEntityError(`(${this.name}) You need to provide the class name for truncate`);
+            throw new RedisOrmEntityError(`(${this.name}, ${table}) You need to provide the class name for truncate`);
         }
 
         // get redis,
@@ -251,17 +251,17 @@ export class BaseEntity {
                 if (value && Number.isInteger(value)) {
                     values.push(value.toString().replace(/:/g, ""));
                 } else {
-                    throw new RedisOrmEntityError(`(${this.constructor.name}) Invalid number value: ${value} for primary key: ${column}`);
+                    throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) Invalid number value: ${value} for primary key: ${column}`);
                 }
 
             } else if (typeof value === "string") {
                 if (value) {
                     values.push(value.replace(/:/g, ""));
                 } else {
-                    throw new RedisOrmEntityError(`(${this.constructor.name}) Invalid string value: '${value}' for primary key: ${column}`);
+                    throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) Invalid string value: '${value}' for primary key: ${column}`);
                 }
             } else {
-                throw new RedisOrmEntityError(`(${this.constructor.name}) Invalid value: ${value} for primary key: ${column}`);
+                throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) Invalid value: ${value} for primary key: ${column}`);
             }
         }
 
@@ -280,23 +280,23 @@ export class BaseEntity {
 
     public increment<T extends BaseEntity>(this: T, column: keyof T, value: number = 1) {
         if (this.isNew) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot increment a new entity`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) You cannot increment a new entity`);
         }
 
         if (serviceInstance.isPrimaryKey(this.constructor, column as string)) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot increment primary key`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) You cannot increment primary key`);
         }
 
         if (serviceInstance.isUniqueKey(this.constructor, column as string)) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot increment unique key`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) You cannot increment unique key`);
         }
 
         if (!serviceInstance.isNumberColumn(this.constructor, column as string)) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) Column need to be in the type of Number`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) Column need to be in the type of Number`);
         }
 
         if (!Number.isInteger(value)) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) Increment value need to be an integer`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) Increment value need to be an integer`);
         }
 
         this._increments[column as string] = value;
@@ -377,7 +377,7 @@ export class BaseEntity {
 
     private async _saveInternal({isRestore = false} = {}) {
         if (this.isDeleted && !isRestore) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot update a deleted entity`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) You cannot update a deleted entity`);
         }
 
         const changes = this._getChanges();
@@ -429,11 +429,11 @@ export class BaseEntity {
         const saveResult = JSON.parse(commandResult) as ISaveResult;
 
         if (saveResult.error) {
-            if (saveResult.error === "Invalid Schemas") {
+            if (saveResult.error === "Mismatch with remote Schemas") {
                 const schemaErrors = await serviceInstance.compareSchemas(this.constructor, this._table);
-                throw new RedisOrmSchemaError(`(${this.constructor.name}) ${saveResult.error}`, schemaErrors);
+                throw new RedisOrmSchemaError(`(${this.constructor.name}, ${this._table}) ${saveResult.error}`, schemaErrors);
             } else {
-                throw new RedisOrmEntityError(`(${this.constructor.name}) ${saveResult.error}`);
+                throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) ${saveResult.error}`);
             }
         }
 
@@ -478,13 +478,13 @@ export class BaseEntity {
     private async _deleteInternal({forceDelete = false} = {}) {
         // checking
         if (this.isNew) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot delete a new entity`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) You cannot delete a new entity`);
         }
 
         // if it's soft delete
         const entityMeta = serviceInstance.getEntityMeta(this.constructor);
         if (!forceDelete && this.isDeleted) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) You cannot delete a deleted entity`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) You cannot delete a deleted entity`);
         }
 
         // if we didn't set deletedAt, set a new one
@@ -515,7 +515,7 @@ export class BaseEntity {
 
         // throw error if there is any
         if (saveResult.error) {
-            throw new RedisOrmEntityError(`(${this.constructor.name}) ${saveResult.error}`);
+            throw new RedisOrmEntityError(`(${this.constructor.name}, ${this._table}) ${saveResult.error}`);
         }
 
         // update deleted At

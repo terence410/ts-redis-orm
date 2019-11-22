@@ -351,7 +351,7 @@ describe("General Test: Create Entity", () => {
             await entity.save();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `(${TestingGeneral.name}) Entity not exist or deleted. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}, testing_general) Entity not exist or deleted. Entity Id: ${entity.getEntityId()}`);
         }
 
         // delete an deleted entity
@@ -359,7 +359,7 @@ describe("General Test: Create Entity", () => {
             await entity.delete();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `(${TestingGeneral.name}) Entity already deleted. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}, testing_general) Entity already deleted. Entity Id: ${entity.getEntityId()}`);
         }
 
         // force delete the entity
@@ -372,7 +372,7 @@ describe("General Test: Create Entity", () => {
             await entity.delete();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `(${TestingGeneral.name}) Entity not exist. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}, testing_general) Entity not exist. Entity Id: ${entity.getEntityId()}`);
         }
     });
 
