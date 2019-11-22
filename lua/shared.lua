@@ -29,29 +29,34 @@ local function isnumeric(s)
     return v ~= nil and tostring(v) ~= "nan"
 end
 
-local function entityStorageKey(tableName, id)
+local function getEntityStorageKey(tableName, id)
     return "entity:" .. tableName .. ":" .. id
 end
 
-local function indexStorageKey(tableName, column)
+local function getIndexStorageKey(tableName, column)
     return "index:" .. tableName .. ":" .. column
 end
 
-local function uniqueStorageKey(tableName, column)
+local function getUniqueStorageKey(tableName, column)
     return "unique:" .. tableName .. ":" .. column
 end
 
-local function metaStorageKey(tableName)
-    return "meta:" .. tableName
+local function getAutoIncrementStorageKey()
+    return "meta:autoIncrement";
 end
 
-local function tempStorageKey(tableName, column)
+local function getSchemasStorageKey()
+    return "meta:schemas";
+end
+
+local function getTempStorageKey(tableName, column)
     return "temp:" .. tableName .. ":" .. column
 end
 
-local function remoteSchemas(tableName)
-    local currMetaStorageKey = metaStorageKey(tableName)
-    local remoteSchemas = redis.call("HGET", currMetaStorageKey, "schemas")
+local function getRemoteSchemas(tableName)
+    local hash = tableName;
+    local schemasStorageKey = getSchemasStorageKey()
+    local remoteSchemas = redis.call("HGET", schemasStorageKey, tableName)
 
     if remoteSchemas == false then
         return {}
@@ -61,10 +66,11 @@ local function remoteSchemas(tableName)
 end
 
 local function verifySchemas(tableName, clientSchemasString)
-    local currMetaStorageKey = metaStorageKey(tableName)
-    local remoteSchemas = redis.call("HGET", currMetaStorageKey, "schemas")
+    local hash = tableName;
+    local schemasStorageKey = getSchemasStorageKey()
+    local remoteSchemas = redis.call("HGET", schemasStorageKey, hash)
     if remoteSchemas == false then
-        redis.call("HSET", currMetaStorageKey, "schemas", clientSchemasString)
+        redis.call("HSET", schemasStorageKey, tableName, clientSchemasString)
         return true
     end
 

@@ -5,7 +5,7 @@ import * as path from "path";
 import {configLoader} from "./configLoader";
 import {RedisOrmDecoratorError} from "./errors/RedisOrmDecoratorError";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
-import {IEntityMeta, IRedisContainer, ISchema} from "./types";
+import {IEntityMeta, IRedisContainer, ISchema, ISchemas} from "./types";
 
 const debug = Debug("tsredisorm/default");
 
@@ -41,6 +41,10 @@ class ServiceInstance {
 
     public getConnectionConfig(target: object): any {
         const connection = this.getConnection(target);
+        return this.getConnectionConfigByConnection(connection);
+    }
+
+    public getConnectionConfigByConnection(connection: string): any {
         const configFile = configLoader.getConfigFile();
 
         if (!configFile) {
@@ -239,9 +243,8 @@ class ServiceInstance {
 
     public async getRemoteSchemas(target: object, table: string): Promise<{[key: string]: ISchema} | null> {
         const redis = await serviceInstance.getRedis(target);
-        const metaStorageKey = this.getMetaStorageKey(table);
-        const hashKey = "schemas";
-        const remoteSchemasString = await redis.hget(metaStorageKey, hashKey);
+        const storageKey = this.getSchemasStorageKey();
+        const remoteSchemasString = await redis.hget(storageKey, table);
         if (remoteSchemasString) {
             return JSON.parse(remoteSchemasString);
         }
@@ -265,8 +268,32 @@ class ServiceInstance {
         return `unique:${table}:${column}`;
     }
 
-    public getMetaStorageKey(table: string) {
-        return `meta:${table}`;
+    public getSchemasStorageKey() {
+        return `meta:schemas`;
+    }
+
+    // endregion
+
+    // region operations
+
+    public getEntityTypes() {
+        return [...this._entityMetas.keys()];
+    }
+
+    public async getRemoveSchemasList(connection: string = "default") {
+        const schemasList: ISchemas = {};
+        const connectionConfig = serviceInstance.getConnectionConfigByConnection(connection);
+        if (connectionConfig) {
+            const redis = new IORedis(connectionConfig);
+            const storageKey = serviceInstance.getSchemasStorageKey();
+
+            const result = await redis.hgetall(storageKey);
+            for (const [table, schemasString] of Object.entries(result)) {
+                schemasList[table] = JSON.parse(schemasString as string);
+            }
+        }
+
+        return schemasList;
     }
 
     // endregion

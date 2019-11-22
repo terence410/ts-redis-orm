@@ -3,7 +3,7 @@ local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupBy
   local total = {}
   
   for i, id in ipairs(ids) do
-    local currEntityStorageKey = entityStorageKey(namespace, id)
+    local currEntityStorageKey = getEntityStorageKey(namespace, id)
     local aggregateValue = false
     local groupByValue = "*"
     
@@ -83,14 +83,14 @@ local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupBy
 end
 
 local function finalOrderBy(ids, tableName, column, order, offset, limit)
-  local currTempStorageKey = tempStorageKey(tableName, column)
+  local currTempStorageKey = getTempStorageKey(tableName, column)
 
   -- remove temp table (if exist for some reason)
   redis.call("DEL", currTempStorageKey)
 
   -- add value into temp table
   for i, id in ipairs(ids) do
-    local currEntityStorageKey = entityStorageKey(tableName, id)
+    local currEntityStorageKey = getEntityStorageKey(tableName, id)
     local value = redis.call("HGET", currEntityStorageKey, column)
 
     if not isnumeric(value) then
@@ -123,7 +123,7 @@ local function whereSearch(ids, namespace, whereArgvs)
   for i, id in ipairs(ids) do
     local condition = true
     for ii, whereArgv in ipairs(whereArgvs) do
-      local currEntityStorageKey = entityStorageKey(namespace, id)
+      local currEntityStorageKey = getEntityStorageKey(namespace, id)
       local attributeValue = redis.call("HGET", currEntityStorageKey, whereArgv["column"])
 
       if attributeValue == false then
@@ -187,7 +187,7 @@ for i = index, index + indexCount * 3 - 1, 3 do
   local min = ARGV[i + 1]
   local max = ARGV[i + 2]
 
-  local indexStorageKey = indexStorageKey(tableName, column)
+  local indexStorageKey = getIndexStorageKey(tableName, column)
 
   -- we do checking for the first sorted set only
   if firstTable then

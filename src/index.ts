@@ -6,6 +6,7 @@ import {RedisOrmEntityError} from "./errors/RedisOrmEntityError";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
 import {RedisOrmSchemaError} from "./errors/RedisOrmSchemaError";
 import {Query} from "./Query";
+import {serviceInstance} from "./serviceInstance";
 
 export {
     Query,
@@ -16,4 +17,5 @@ export {
     RedisOrmQueryError,
     RedisOrmDecoratorError,
     RedisOrmSchemaError,
+    serviceInstance,
 };

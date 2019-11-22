@@ -8,7 +8,7 @@ local deleteUniqueKeys = {}
 local batch = 10000
 
 -- find remote schemas and assign index and unique keys
-local currRemoteSchemas = remoteSchemas(tableName)
+local currRemoteSchemas = getRemoteSchemas(tableName)
 
 -- prepare all the modified index keys and unique keys
 local currPrimaryError = false
@@ -52,20 +52,20 @@ if currPrimaryError ~= false then
 end
 
 -- start
-local createdAtStorageKey = indexStorageKey(tableName, "createdAt")
+local createdAtStorageKey = getIndexStorageKey(tableName, "createdAt")
 
 -- verify if unique keys can be added properly
 if #createUniqueKeys > 0 then
     -- remove all existing tables
     for i, uniqueKey in pairs(createUniqueKeys) do
-        redis.call("DEL", uniqueStorageKey(tableName, uniqueKey))
+        redis.call("DEL", getUniqueStorageKey(tableName, uniqueKey))
     end
 
     -- add unique keys
     local currUniqueError = false
     for ii, uniqueKey in pairs(createUniqueKeys) do
         -- remove any existing table
-        local currUniqueStorageKey = uniqueStorageKey(tableName, uniqueKey)
+        local currUniqueStorageKey = getUniqueStorageKey(tableName, uniqueKey)
 
         -- loop all entity
         local start = 0
@@ -80,7 +80,7 @@ if #createUniqueKeys > 0 then
 
             for i, entityId in ipairs(entityIds) do
                 -- get the value of the column
-                local currEntityStorageKey = entityStorageKey(tableName, entityId)
+                local currEntityStorageKey = getEntityStorageKey(tableName, entityId)
                 local value = redis.call("HGET", currEntityStorageKey, uniqueKey)
                 if value ~= false then
                     local existEntityId = redis.call("HGET", currUniqueStorageKey, value)
@@ -109,7 +109,7 @@ if #createUniqueKeys > 0 then
     if currUniqueError ~= false then
         -- clear all created unique tables
         for i, uniqueKey in pairs(createUniqueKeys) do
-            redis.call("DEL", uniqueStorageKey(tableName, uniqueKey))
+            redis.call("DEL", getUniqueStorageKey(tableName, uniqueKey))
         end
 
         return error(currUniqueError)
@@ -119,14 +119,14 @@ end
 -- delete unique tables
 if #deleteUniqueKeys > 0 then
     for i, uniqueKey in pairs(deleteUniqueKeys) do
-        redis.call("DEL", uniqueStorageKey(tableName, uniqueKey))
+        redis.call("DEL", getUniqueStorageKey(tableName, uniqueKey))
     end
 end
 
 -- create index tables
 if #createIndexKeys > 0 then
     for i, indexKey in pairs(createIndexKeys) do
-        redis.call("DEL", indexStorageKey(tableName, indexKey))
+        redis.call("DEL", getIndexStorageKey(tableName, indexKey))
     end
 
     local start = 0
@@ -140,12 +140,12 @@ if #createIndexKeys > 0 then
         stop = stop + batch
 
         for i, entityId in ipairs(entityIds) do
-            local currEntityStorageKey = entityStorageKey(tableName, entityId)
+            local currEntityStorageKey = getEntityStorageKey(tableName, entityId)
 
             -- add index keys
             for ii, indexKey in pairs(createIndexKeys) do
                 -- remove any existing table
-                local currIndexStorageKey = indexStorageKey(tableName, indexKey)
+                local currIndexStorageKey = getIndexStorageKey(tableName, indexKey)
                 local value = redis.call("HGET", currEntityStorageKey, indexKey)
                 if isnumeric(value) then
                     redis.call("ZADD", currIndexStorageKey, value, entityId)
@@ -158,13 +158,13 @@ end
 -- delete index tables
 if #deleteIndexKeys > 0 then
     for i, indexKey in pairs(deleteIndexKeys) do
-        redis.call("DEL", indexStorageKey(tableName, indexKey))
+        redis.call("DEL", getIndexStorageKey(tableName, indexKey))
     end
 end
 
 -- update schema
-local currMetaStorageKey = metaStorageKey(tableName)
-redis.call("HSET", currMetaStorageKey, "schemas", clientSchemasString)
+local schemasStorageKey = getSchemasStorageKey()
+redis.call("HSET", schemasStorageKey, tableName, clientSchemasString)
 
 local result = {success = true }
 return cjson.encode(result)

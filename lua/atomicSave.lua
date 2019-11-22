@@ -17,7 +17,7 @@ if not isVerified then
 end
 
 -- entity key
-local currEntityStorageKey = entityStorageKey(tableName, entityId)
+local currEntityStorageKey = getEntityStorageKey(tableName, entityId)
 
 -- check if unique exist
 if #uniqueKeys > 0 then
@@ -25,7 +25,7 @@ if #uniqueKeys > 0 then
         if table.hasKey(changes, uniqueKey) then
             -- if the changes has set value
             local newValue = changes[uniqueKey]
-            local existEntityId = redis.call("HGET", uniqueStorageKey(tableName, uniqueKey), newValue)
+            local existEntityId = redis.call("HGET", getUniqueStorageKey(tableName, uniqueKey), newValue)
             if existEntityId ~= false then
                 local message = "Unique key: " .. uniqueKey .. " with value: " .. newValue .. " already exist on entity id: " .. existEntityId .. ". Current entity id: " .. entityId
                 return error(message)
@@ -47,7 +47,7 @@ if isRestore == "true" then
             if not table.hasKey(changes, uniqueKey) then
                 local value = redis.call("HGET", currEntityStorageKey, uniqueKey)
                 if value ~= false then
-                    local existEntityId = redis.call("HGET", uniqueStorageKey(tableName, uniqueKey), value)
+                    local existEntityId = redis.call("HGET", getUniqueStorageKey(tableName, uniqueKey), value)
                     if existEntityId ~= false then
                         local message = "Unique key: " .. uniqueKey .. " with value: " .. value .. " already exist on entity id: " .. existEntityId .. ". Current entity id: " .. entityId
                         return error(message)
@@ -62,7 +62,7 @@ if isRestore == "true" then
         for i, uniqueKey in pairs(uniqueKeys) do
             local value = redis.call("HGET", currEntityStorageKey, uniqueKey)
             if value ~= false then
-                redis.call("HSET", uniqueStorageKey(tableName, uniqueKey), value, entityId)
+                redis.call("HSET", getUniqueStorageKey(tableName, uniqueKey), value, entityId)
             end
         end
     end
@@ -72,7 +72,7 @@ if isRestore == "true" then
         for i, indexKey in pairs(indexKeys) do
             local value = redis.call("HGET", currEntityStorageKey, indexKey)
             if isnumeric(value) then
-                redis.call("ZADD", indexStorageKey(tableName, indexKey), value, entityId)
+                redis.call("ZADD", getIndexStorageKey(tableName, indexKey), value, entityId)
             end
         end
     end
@@ -80,25 +80,25 @@ else
     if isNew == "true" then
         -- generate auto increment entityId for new model
         if isnotempty(autoIncrementKey) then
-            local hash = "autoIncrement"
-            local currMetaStorageKey = metaStorageKey(tableName)
-            local autoIncrementValue = redis.call("HGET", currMetaStorageKey, hash)
+            local hash = tableName
+            local autoIncrementStorageKey = getAutoIncrementStorageKey()
+            local autoIncrementValue = redis.call("HGET", autoIncrementStorageKey, hash)
 
             -- set a default to 0 for auto increment
             if autoIncrementValue == false then
                 autoIncrementValue = "0"
-                redis.call("HSET", currMetaStorageKey, hash, autoIncrementValue)
+                redis.call("HSET", autoIncrementStorageKey, hash, autoIncrementValue)
             end
 
             if isempty(entityId) or tonumber(entityId) == 0 then
-                autoIncrementValue = redis.call("HINCRBY", currMetaStorageKey, hash, 1)
+                autoIncrementValue = redis.call("HINCRBY", autoIncrementStorageKey, hash, 1)
                 entityId = tostring(autoIncrementValue)
                 changes[autoIncrementKey] = entityId
                 result["entityId"] = entityId
                 result["autoIncrementKeyValue"] = autoIncrementValue
 
                 -- update the storage key
-                currEntityStorageKey = entityStorageKey(tableName, entityId)
+                currEntityStorageKey = getEntityStorageKey(tableName, entityId)
 
             elseif not isnumeric(entityId) then
                 -- entityId is not empty, but also not a number
@@ -106,7 +106,7 @@ else
             else
                 -- if entity id is larger than the increment Key, we have to update it
                 if tonumber(entityId) > tonumber(autoIncrementValue) then
-                    redis.call("HSET", currMetaStorageKey, hash, entityId)
+                    redis.call("HSET", autoIncrementStorageKey, hash, entityId)
                 end
             end
         end
@@ -150,9 +150,9 @@ if #indexKeys > 0 then
         if table.hasKey(changes, indexKey) then
             local newValue = changes[indexKey]
             if isnumeric(newValue) then
-                redis.call("ZADD", indexStorageKey(tableName, indexKey), newValue, entityId)
+                redis.call("ZADD", getIndexStorageKey(tableName, indexKey), newValue, entityId)
             else
-                redis.call("ZREM", indexStorageKey(tableName, indexKey), entityId)
+                redis.call("ZREM", getIndexStorageKey(tableName, indexKey), entityId)
             end
         end
     end
@@ -168,11 +168,11 @@ if #uniqueKeys > 0 then
 
             -- remove the old unique key since they are different
             if value ~= false and value ~= newValue then
-                redis.call("HDEL", uniqueStorageKey(tableName, uniqueKey), value)
+                redis.call("HDEL", getUniqueStorageKey(tableName, uniqueKey), value)
             end
 
             -- save the new unique key
-            redis.call("HSET", uniqueStorageKey(tableName, uniqueKey), newValue, entityId)
+            redis.call("HSET", getUniqueStorageKey(tableName, uniqueKey), newValue, entityId)
         end
     end
 end

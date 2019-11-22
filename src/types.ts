@@ -2,6 +2,7 @@ import * as IORedis from "ioredis";
 import {BaseEntity} from "./BaseEntity";
 
 // decorator
+export type ISchemas = {[key: string]: ISchema};
 export interface ISchemaBase {
     primary: boolean;
     autoIncrement: boolean;
@@ -70,3 +71,4 @@ export interface IEvent<T> {
     off(type: IEventType, callback: (entity: T) => void): any;
     emit(type: IEventType, entity: T): any;
 }
+

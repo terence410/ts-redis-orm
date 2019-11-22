@@ -6,6 +6,7 @@ import {
     RedisOrmEntityError,
     RedisOrmQueryError,
     RedisOrmSchemaError,
+    serviceInstance,
 } from "./src/"; // from "ts-redis-orm"
 
 @Entity({connection: "default", table: "entity", indexUpdatedAt: true})
@@ -158,6 +159,10 @@ const main = async () => {
     entity10.id = 10;
     await entity10.save();
     const entity10a = await MyEntity.query().setTable(table).find(10);
+
+    // others
+    const removeSchemasList = serviceInstance.getRemoveSchemasList("connectionKey");
+    const allEntityTypes = serviceInstance.getEntityTypes();
 
     // errors
     try {

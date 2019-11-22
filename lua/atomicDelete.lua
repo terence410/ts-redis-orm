@@ -14,7 +14,7 @@ if not isVerified then
 end
 
 -- entity id key
-local currEntityStorageKey = entityStorageKey(tableName, entityId)
+local currEntityStorageKey = getEntityStorageKey(tableName, entityId)
 
 -- check entity exist and the state
 local deletedAt = redis.call("HGET", currEntityStorageKey, "deletedAt")
@@ -27,7 +27,7 @@ end
 -- remove all indexes
 if #indexKeys > 0 then
     for i, indexKey in pairs(indexKeys) do
-        redis.call("ZREM", indexStorageKey(tableName, indexKey), entityId)
+        redis.call("ZREM", getIndexStorageKey(tableName, indexKey), entityId)
     end
 end
 
@@ -39,7 +39,7 @@ if #uniqueKeys > 0 then
 
         -- remove the old unique key since they are different
         if currUniqueKeyValue ~= false then
-            redis.call("HDEL", uniqueStorageKey(tableName, uniqueKey), currUniqueKeyValue)
+            redis.call("HDEL", getUniqueStorageKey(tableName, uniqueKey), currUniqueKeyValue)
         end
     end
 end
@@ -47,13 +47,13 @@ end
 -- if it is softDelete
 if isSoftDelete == "true" then
     -- add deletedAt index
-    redis.call("ZADD", indexStorageKey(tableName, "deletedAt"), deletedAtTimestamp, entityId)
+    redis.call("ZADD", getIndexStorageKey(tableName, "deletedAt"), deletedAtTimestamp, entityId)
 
     -- add deletedAt into Model
     redis.call("HSET", currEntityStorageKey, "deletedAt", deletedAtTimestamp)
 else
     -- remove deletedAt index
-    redis.call("ZREM", indexStorageKey(tableName, "deletedAt"), entityId)
+    redis.call("ZREM", getIndexStorageKey(tableName, "deletedAt"), entityId)
 
     -- remove the entity
     redis.call("DEL", currEntityStorageKey)

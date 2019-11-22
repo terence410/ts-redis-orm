@@ -537,6 +537,19 @@ describe("Events", () => {
     });
 });
 
+describe("Service Instance", () => {
+    it("get entities", async () => {
+        const entityTypes = serviceInstance.getEntityTypes();
+        const entityType = entityTypes.find(x => x === TestingGeneral);
+        assert.isDefined(entityType);
+    });
+
+    it("get schemas list", async () => {
+        const schemasList = await serviceInstance.getRemoveSchemasList();
+        assert.hasAllKeys(schemasList, ["testing_general"]);
+    });
+});
+
 describe("Clean up", () => {
     it("truncate", async () => {
         await TestingGeneral.truncate("TestingGeneral");
