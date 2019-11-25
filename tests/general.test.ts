@@ -6,6 +6,7 @@ import {serviceInstance} from "../src/serviceInstance";
 type NullableString = string | null;
 type IObject = undefined | {
     createdAt: Date;
+    name: string;
 };
 
 @Entity({connection: "default", table: "testing_general"})
@@ -36,6 +37,9 @@ class TestingGeneral extends BaseEntity {
 
     @Column()
     public object: IObject;
+
+    @Column()
+    public objectArray: any;
 }
 
 describe("General Test: Internal", () => {
@@ -94,7 +98,8 @@ describe("General Test: Create Entity", () => {
         const entity = new TestingGeneral();
         entity.id = id;
         entity.uniqueNumber = id;
-        entity.object = {createdAt: new Date()};
+        entity.object = {createdAt: new Date(), name: "Michael Jackson"};
+        entity.objectArray = [{createdAt: new Date(), name: "Michael Jackson"}];
         await entity.save();
         assert.isFalse(entity.isNew);
         assert.equal(entity.getEntityId(), id.toString());
@@ -390,7 +395,7 @@ describe("General Test: Create Entity", () => {
             entity.boolean = Math.random() > 0.5;
             entity.array = new Array(Math.random() * 20 | 0).fill(1);
             entity.string1 = Math.random().toString();
-            entity.object = {createdAt: new Date()};
+            entity.object = {createdAt: new Date(), name: "Anonymous"};
             promises.push(entity.save());
         }
         await Promise.all(promises);

@@ -1,5 +1,6 @@
+const isoRegex = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*))(?:Z|(\+|-)([\d|:]*))?$/;
+
 class Parser {
-    private _ISORegex = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*))(?:Z|(\+|-)([\d|:]*))?$/;
 
     public parseStorageStringToValue(type: any, storageString: string): any {
         let value: any;
@@ -97,7 +98,7 @@ class Parser {
 
     private _parseDate(key: string, value: any): any {
         if (typeof value === "string") {
-            if (value.match(this._ISORegex)) {
+            if (value.match(isoRegex)) {
                 return new Date(value);
             }
         }
