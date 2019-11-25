@@ -12,6 +12,7 @@ class EntityExporter {
             const meta = {
                 createdAt: new Date(),
                 class: (entityType as any).name,
+                tablePrefix: serviceInstance.getTablePrefix(entityType),
                 table: serviceInstance.getDefaultTable(entityType),
                 schemas: serviceInstance.getSchemasJson(entityType),
                 total: entities.length,

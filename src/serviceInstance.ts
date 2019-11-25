@@ -78,6 +78,10 @@ class ServiceInstance {
         return this.getEntityMeta(target).table;
     }
 
+    public getTablePrefix(target: object): string {
+        return this.getEntityMeta(target).tablePrefix;
+    }
+
     public getConnection(target: object): string {
         return this.getEntityMeta(target).connection;
     }
@@ -222,11 +226,11 @@ class ServiceInstance {
         return redisContainer.redis;
     }
 
-    public async compareSchemas(target: object, table: string): Promise<string[]> {
+    public async compareSchemas(target: object, tableName: string): Promise<string[]> {
         let errors: string[] = [];
 
         try {
-            const remoteSchemas = await this.getRemoteSchemas(target, table);
+            const remoteSchemas = await this.getRemoteSchemas(target, tableName);
             if (remoteSchemas) {
                 // we do such indirect case is to convert primitive types to strings
                 const clientSchemasJson = this.getSchemasJson(target);
@@ -241,10 +245,10 @@ class ServiceInstance {
         return errors;
     }
 
-    public async getRemoteSchemas(target: object, table: string): Promise<{[key: string]: ISchema} | null> {
+    public async getRemoteSchemas(target: object, tableName: string): Promise<{[key: string]: ISchema} | null> {
         const redis = await serviceInstance.getRedis(target);
         const storageKey = this.getSchemasStorageKey();
-        const remoteSchemasString = await redis.hget(storageKey, table);
+        const remoteSchemasString = await redis.hget(storageKey, tableName);
         if (remoteSchemasString) {
             return JSON.parse(remoteSchemasString);
         }
@@ -256,16 +260,16 @@ class ServiceInstance {
 
     // region public methods: storage key
 
-    public getEntityStorageKey(table: string, entityId: string) {
-        return `entity:${table}:${entityId}`;
+    public getEntityStorageKey(tableName: string, entityId: string) {
+        return `entity:${tableName}:${entityId}`;
     }
 
-    public getIndexStorageKey(table: string, column: string) {
-        return `index:${table}:${column}`;
+    public getIndexStorageKey(tableName: string, column: string) {
+        return `index:${tableName}:${column}`;
     }
 
-    public getUniqueStorageKey(table: string, column: string) {
-        return `unique:${table}:${column}`;
+    public getUniqueStorageKey(tableName: string, column: string) {
+        return `unique:${tableName}:${column}`;
     }
 
     public getSchemasStorageKey() {

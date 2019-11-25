@@ -38,7 +38,7 @@ import {
     serviceInstance,
 } from "ts-redis-orm";
 
-@Entity({connection: "default", table: "entity", indexUpdatedAt: true})
+@Entity({connection: "default", table: "my_table", tablePrefix: "prefix_", indexUpdatedAt: true})
 class MyEntity extends BaseEntity {
     @Column({primary: true, autoIncrement: true})
     public id: number = 0;

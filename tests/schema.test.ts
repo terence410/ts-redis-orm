@@ -193,7 +193,7 @@ describe("Schema Test", () => {
                 await duplicatedEntity.restore();
                 assert.isTrue(false);
             } catch (err) {
-                assert.equal(err.message, `(${TestingSchema1.name}, testing_schema) Unique key: unique1 with value: 0 already exist on entity id: 1. Current entity id: ${duplicatedEntity.id}`);
+                assert.equal(err.message, `(${TestingSchema1.name}, testing_schema) Unique key (unique1) with value (0) already exist on entity id (1). Current entity id (${duplicatedEntity.id})`);
             }
 
             // update the value and restore again

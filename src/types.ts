@@ -16,6 +16,7 @@ export interface ISchema extends ISchemaBase {
 
 export interface IEntityBaseMeta {
     table: string;
+    tablePrefix: string;
     connection: string;
     indexUpdatedAt: boolean;
 }

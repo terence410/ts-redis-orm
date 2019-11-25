@@ -21,6 +21,7 @@ const debugPerformance = Debug("tsredisorm/performance");
 
 export class Query<T extends typeof BaseEntity> {
     private _table: string  = "";
+    private _tableName: string  = ""; // prefix + _table
     private _onlyDeleted = false;
     private _offset = 0;
     private _limit = -1;
@@ -33,13 +34,14 @@ export class Query<T extends typeof BaseEntity> {
     private _timerType = "";
 
     constructor(private readonly _entityType: T) {
-        this._table = serviceInstance.getDefaultTable(_entityType);
+        this.setTable(serviceInstance.getDefaultTable(_entityType));
     }
 
     // region operation
 
     public setTable(table: string) {
         this._table = table;
+        this._tableName = serviceInstance.getTablePrefix(this._entityType) + this._table;
         return this;
     }
 
@@ -55,7 +57,7 @@ export class Query<T extends typeof BaseEntity> {
         // if we have a valid entity id
         let entity: InstanceType<T> | undefined;
         if (entityId) {
-            const entityStorageKey = serviceInstance.getEntityStorageKey(this._table, entityId);
+            const entityStorageKey = serviceInstance.getEntityStorageKey(this._tableName, entityId);
 
             if (!entityStorageKey) {
                 throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid id ${JSON.stringify(idObject)}`);
@@ -100,7 +102,7 @@ export class Query<T extends typeof BaseEntity> {
 
         const redis = await this._getRedis();
         const id = await redis.hget(
-            serviceInstance.getUniqueStorageKey(this._table, column as string),
+            serviceInstance.getUniqueStorageKey(this._tableName, column as string),
             value.toString(),
         );
 
@@ -320,7 +322,7 @@ export class Query<T extends typeof BaseEntity> {
             throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column}`);
         }
 
-        const indexStorageKey = serviceInstance.getIndexStorageKey(this._table, column as string);
+        const indexStorageKey = serviceInstance.getIndexStorageKey(this._tableName, column as string);
         const entityId = serviceInstance.convertAsEntityId(this._entityType, idObject);
 
         let offset = -1;
@@ -372,7 +374,7 @@ export class Query<T extends typeof BaseEntity> {
             whereSearchKeys.length,
             this._offset,
             this._limit,
-            this._table,
+            this._tableName,
             "", // aggregate
             "", // aggregate column
             "", // group by column
@@ -410,7 +412,7 @@ export class Query<T extends typeof BaseEntity> {
         const order = this._sortBy ? this._sortBy.order : "asc";
 
         // redis params
-        const indexStorageKey = serviceInstance.getIndexStorageKey(this._table, column);
+        const indexStorageKey = serviceInstance.getIndexStorageKey(this._tableName, column);
         const extraParams = ["LIMIT", this._offset.toString(), this._limit.toString()];
 
         // collect result ids
@@ -453,7 +455,7 @@ export class Query<T extends typeof BaseEntity> {
             whereSearchKeys.length,
             this._limit, // not used
             this._offset, // not used
-            this._table,
+            this._tableName,
             aggregate,
             aggregateColumn,
             this._groupByColumn,
@@ -497,9 +499,9 @@ export class Query<T extends typeof BaseEntity> {
         const redis = await this._getRedis();
 
         if (max === "+inf" && min === "-inf") {
-            count = await redis.zcard(serviceInstance.getIndexStorageKey(this._table, column));
+            count = await redis.zcard(serviceInstance.getIndexStorageKey(this._tableName, column));
         } else {
-            count = await redis.zcount(serviceInstance.getIndexStorageKey(this._table, column), min, max);
+            count = await redis.zcount(serviceInstance.getIndexStorageKey(this._tableName, column), min, max);
         }
 
         return count;
@@ -526,7 +528,7 @@ export class Query<T extends typeof BaseEntity> {
             const groupBy = `Group by: ${JSON.stringify(this._groupByColumn)}`;
             const offset = `offset: ${this._offset}`;
             const limit = `limit: ${this._limit}`;
-            debugPerformance(`(${this._entityType.name}, ${this._table}) ${type} executed in ${executionTime}ms. ${indexWhere}. ${searchWhere}. ${sort}. ${groupBy}. ${offset}. ${limit}`);
+            debugPerformance(`(${this._entityType.name}, ${this._tableName}) ${type} executed in ${executionTime}ms. ${indexWhere}. ${searchWhere}. ${sort}. ${groupBy}. ${offset}. ${limit}`);
         }
     }
 
@@ -534,7 +536,7 @@ export class Query<T extends typeof BaseEntity> {
         if (debugPerformance.enabled && this._timerType === type) {
             const diff = process.hrtime(this._timer);
             const executionTime = (diff[1] / 1000000).toFixed(2);
-            debugPerformance(`(${this._entityType.name}, ${this._table}) ${type} executed in ${executionTime}ms. ${data}`);
+            debugPerformance(`(${this._entityType.name}, ${this._tableName}) ${type} executed in ${executionTime}ms. ${data}`);
         }
     }
 

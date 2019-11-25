@@ -1,7 +1,7 @@
 import { assert, expect } from "chai";
 import {BaseEntity, Column, Entity, RedisOrmEntityError, RedisOrmSchemaError} from "../src/";
 
-@Entity({table: "testing_tables"})
+@Entity({table: "testing_tables", tablePrefix: "prefix_"})
 class TestingTables extends BaseEntity {
     @Column({primary: true})
     public table: string = "";
@@ -16,7 +16,7 @@ class TestingTables extends BaseEntity {
     public value: number = 0;
 }
 
-@Entity({table: "testing_tables_invalid"})
+@Entity({table: "testing_tables_invalid", tablePrefix: "prefix_"})
 class TestingTablesInvalid extends BaseEntity {
     @Column({primary: true})
     public table: string = "";

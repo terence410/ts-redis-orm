@@ -27,7 +27,7 @@ if #uniqueKeys > 0 then
             local newValue = changes[uniqueKey]
             local existEntityId = redis.call("HGET", getUniqueStorageKey(tableName, uniqueKey), newValue)
             if existEntityId ~= false then
-                local message = "Unique key: " .. uniqueKey .. " with value: " .. newValue .. " already exist on entity id: " .. existEntityId .. ". Current entity id: " .. entityId
+                local message = "Unique key (" .. uniqueKey .. ") with value (" .. newValue .. ") already exist on entity id (" .. existEntityId .. "). Current entity id (" .. entityId .. ")"
                 return error(message)
             end
         end
@@ -49,7 +49,7 @@ if isRestore == "true" then
                 if value ~= false then
                     local existEntityId = redis.call("HGET", getUniqueStorageKey(tableName, uniqueKey), value)
                     if existEntityId ~= false then
-                        local message = "Unique key: " .. uniqueKey .. " with value: " .. value .. " already exist on entity id: " .. existEntityId .. ". Current entity id: " .. entityId
+                        local message = "Unique key (" .. uniqueKey .. ") with value (" .. value .. ") already exist on entity id (" .. existEntityId .. "). Current entity id (" .. entityId .. ")"
                         return error(message)
                     end
                 end

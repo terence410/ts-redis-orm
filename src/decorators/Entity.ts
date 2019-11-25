@@ -7,6 +7,7 @@ export function Entity(entityMeta: {[P in keyof IEntityBaseMeta]?: IEntityBaseMe
         // add entity meta
         let newEntityMeta: IEntityMeta = {
             table: "",
+            tablePrefix: "",
             connection: "default",
             indexUpdatedAt: true,
             redisMaster: null,
