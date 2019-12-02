@@ -7,7 +7,7 @@
   "scripts": {
     "test": "mocha --exit -r ts-node/register tests/*.ts",
     "test-general": "mocha --exit --timeout 10000 -r ts-node/register tests/general.test.ts",
-    "test-speed": "set debug=tsredisorm* & mocha --exit --timeout 10000 -r ts-node/register tests/speed.test.ts",
+    "test-speed": "set debug=redisorm* & mocha --exit --timeout 10000 -r ts-node/register tests/speed.test.ts",
     "test-query": "mocha --exit --timeout 10000 -r ts-node/register tests/query.test.ts",
     "test-unique": "mocha --exit --timeout 10000 -r ts-node/register tests/unique.test.ts",
     "test-primaryKeys": "mocha --exit --timeout 10000 -r ts-node/register tests/primaryKeys.test.ts",

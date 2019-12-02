@@ -7,7 +7,7 @@ import {RedisOrmDecoratorError} from "./errors/RedisOrmDecoratorError";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
 import {IEntityMeta, IRedisContainer, ISchema, ISchemas} from "./types";
 
-const debug = Debug("tsredisorm/default");
+const debug = Debug("redisorm/default");
 
 const IOREDIS_ERROR_RETRY_DELAY = 1000;
 const IOREDIS_CONNECT_TIMEOUT = 10000;

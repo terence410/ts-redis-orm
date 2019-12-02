@@ -17,7 +17,7 @@ import {
 } from "./types";
 
 // debug
-const debugPerformance = Debug("tsredisorm/performance");
+const debugPerformance = Debug("redisorm/performance");
 
 export class Query<T extends typeof BaseEntity> {
     private _table: string  = "";

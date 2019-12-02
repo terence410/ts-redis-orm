@@ -1,5 +1,8 @@
+import Debug from "debug";
 import * as fs from "fs";
 import * as path from "path";
+
+const debug = Debug("redisorm/default");
 
 class ConfigLoader {
     public getConfigFile(): string | null {
@@ -15,8 +18,10 @@ class ConfigLoader {
         }
 
         for (const configFile of configFiles) {
+            debug(`Check if config file exists: ${configFile}`);
             try {
                 const result = fs.accessSync(configFile, fs.constants.F_OK);
+                debug(`Config file exists: ${configFile}`);
                 return path.join(process.cwd(), configFile);
             } catch (err) {
                 //

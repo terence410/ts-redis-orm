@@ -9,7 +9,7 @@ import {serviceInstance} from "./serviceInstance";
 import {IArgValues, IEvent, IIdObject, IInstanceValues, ISaveResult} from "./types";
 
 // debug
-const debug = Debug("tsredisorm/default");
+const debug = Debug("redisorm/default");
 
 export class BaseEntity {
     // region static methods

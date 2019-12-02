@@ -222,10 +222,19 @@ const main = async () => {
 - In tsconfig.json, set "emitDecoratorMetadata" to true. 
 - In tsconfig.json, set "strictNullChecks" to true. (To avoid type confusion in entity)
 - Create redisorm.default.json in the project root folder.
-  - If you wanted to manage multiple environment, you can create redisorm.${NODE_ENV}.json, where ${NODE_ENV} eqauls to the process.env.NODE_ENV environment variable.
-  - The library will search for the environment specific json file first. If it does not exist, it will try to load the redisorm.default.json.
-- Export env variable REDIS_ORM_CONFIG=custom.json for your own config file path
-- For debug, export debug=tsredisorm* 
+
+# Environment Variable
+- export debug=redisorm/default
+  - basic internal logs
+- export debug=redisorm/performance
+  - logging the performance data of query
+- export NODE_ENV=production
+  - it will try to load the config file "./redisorm.production.json"
+- export REDIS_ORM_CONFIG=./path/custom.json
+  - it will try to load the config file "./path/custom.json"
+  - this has higher priority than NODE_ENV
+  
+# Config file format (./redisorm.default.json)
 
 ```json5
 {
