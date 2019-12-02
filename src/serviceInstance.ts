@@ -19,13 +19,15 @@ class ServiceInstance {
     private _entitySchemasJsons = new Map<object, string>(); // cache for faster JSON.stringify
 
     // region public methods: set
-    
+
+    /** @internal */
     public addEntity(target: object, entityMeta: IEntityMeta) {
         if (!this._entityMetas.has(target)) {
             this._entityMetas.set(target, entityMeta);
         }
     }
 
+    /** @internal */
     public addColumn(target: object, column: string, schema: ISchema) {
         let schemas = this._entitySchemas.get(target);
         if (!schemas) {
@@ -284,7 +286,7 @@ class ServiceInstance {
         return [...this._entityMetas.keys()];
     }
 
-    public async getRemoveSchemasList(connection: string = "default") {
+    public async getRemoteSchemasList(connection: string = "default") {
         const schemasList: ISchemas = {};
         const connectionConfig = serviceInstance.getConnectionConfigByConnection(connection);
         if (connectionConfig) {

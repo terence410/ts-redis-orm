@@ -26,6 +26,7 @@ export class BaseEntity {
         return await serviceInstance.getRedis(this);
     }
 
+    /** @internal */
     public static newFromStorageStrings<T extends typeof BaseEntity>(
         this: T, storageStrings: { [key: string]: string }): InstanceType<T> {
         const entity = this.create({});

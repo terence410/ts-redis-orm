@@ -550,7 +550,7 @@ describe("Service Instance", () => {
     });
 
     it("get schemas list", async () => {
-        const schemasList = await serviceInstance.getRemoveSchemasList();
+        const schemasList = await serviceInstance.getRemoteSchemasList();
         assert.hasAllKeys(schemasList, ["testing_general"]);
     });
 });

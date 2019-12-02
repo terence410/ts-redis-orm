@@ -161,7 +161,7 @@ const main = async () => {
     const entity10a = await MyEntity.query().setTable(table).find(10);
 
     // others
-    const removeSchemasList = serviceInstance.getRemoveSchemasList("connectionKey");
+    const removeSchemasList = serviceInstance.getRemoteSchemasList("connectionKey");
     const allEntityTypes = serviceInstance.getEntityTypes();
 
     // errors

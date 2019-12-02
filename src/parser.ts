@@ -98,7 +98,7 @@ class Parser {
 
     private _parseDate(key: string, value: any): any {
         if (typeof value === "string") {
-            if (value.match(isoRegex)) {
+            if (isoRegex.test(value)) {
                 return new Date(value);
             }
         }
