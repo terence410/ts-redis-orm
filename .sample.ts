@@ -3,10 +3,10 @@ import {
     Column,
     Entity,
     RedisOrmDecoratorError,
-    RedisOrmEntityError,
+    RedisOrmOperationError,
     RedisOrmQueryError,
     RedisOrmSchemaError,
-    serviceInstance,
+    redisOrm,
 } from "./src/"; // from "ts-redis-orm"
 
 @Entity({connection: "default", table: "entity", indexUpdatedAt: true})
@@ -70,7 +70,7 @@ const main = async () => {
 
     // set values
     entity1.id = 1;
-    entity1.set({id: 1});
+    entity1.setValues({id: 1});
     entity1.increment("number", 10);
     entity1.createdAt = new Date(); // auto added into entity
     entity1.updatedAt = new Date(); // auto added into entity
@@ -161,8 +161,8 @@ const main = async () => {
     const entity10a = await MyEntity.query().setTable(table).find(10);
 
     // others
-    const removeSchemasList = serviceInstance.getRemoteSchemasList("connectionKey");
-    const allEntityTypes = serviceInstance.getEntityTypes();
+    const removeSchemasList = redisOrm.getRemoteSchemasList("connectionKey");
+    const allEntityTypes = redisOrm.getEntityTypes();
 
     // errors
     try {
@@ -174,7 +174,7 @@ const main = async () => {
         } else if (err instanceof RedisOrmDecoratorError) {
             // error related to decorator, only throw at compile time
 
-        } else if (err instanceof RedisOrmEntityError) {
+        } else if (err instanceof RedisOrmOperationError) {
             // error related to entity operation
 
         } else if (err instanceof RedisOrmQueryError) {

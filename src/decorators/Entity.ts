@@ -1,6 +1,6 @@
 import {RedisOrmDecoratorError} from "..";
-import {serviceInstance} from "../serviceInstance";
-import {IEntityBaseMeta, IEntityMeta, ISchema} from "../types";
+import {redisOrm} from "../redisOrm";
+import {IEntityBaseMeta, IEntityMeta, IEntityColumn} from "../types";
 
 export function Entity(entityMeta: {[P in keyof IEntityBaseMeta]?: IEntityBaseMeta[P]} = {}) {
     return (target: object) => {
@@ -13,22 +13,22 @@ export function Entity(entityMeta: {[P in keyof IEntityBaseMeta]?: IEntityBaseMe
             redisMaster: null,
         };
         newEntityMeta = Object.assign(newEntityMeta, entityMeta);
-        serviceInstance.addEntity(target, newEntityMeta);
+        redisOrm.addEntity(target, newEntityMeta);
 
         // add createdAt, updatedAt and deletedAt
-        const schema: ISchema = {
+        const schema: IEntityColumn = {
             type: Date,
             primary: false,
             autoIncrement: false,
             index: true,
             unique: false,
         };
-        serviceInstance.addColumn(target, "createdAt", schema);
-        serviceInstance.addColumn(target, "updatedAt", {...schema, index: newEntityMeta.indexUpdatedAt});
-        serviceInstance.addColumn(target, "deletedAt", schema);
+        redisOrm.addColumn(target, "createdAt", schema);
+        redisOrm.addColumn(target, "updatedAt", {...schema, index: newEntityMeta.indexUpdatedAt});
+        redisOrm.addColumn(target, "deletedAt", schema);
 
         // validate from entity
-        const primaryKeys = serviceInstance.getPrimaryKeys(target);
+        const primaryKeys = redisOrm.getPrimaryKeys(target);
         if (primaryKeys.length === 0) {
             throw new RedisOrmDecoratorError(`(${(target as any).name}) No primary keys exist for this entity`);
         }

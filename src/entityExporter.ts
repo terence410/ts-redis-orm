@@ -1,7 +1,7 @@
 import fs from "fs";
 import * as readline from "readline";
 import {BaseEntity} from "./BaseEntity";
-import {schemaJsonReplacer, serviceInstance} from "./serviceInstance";
+import {schemaJsonReplacer, redisOrm} from "./redisOrm";
 
 class EntityExporter {
     public exportEntities<T extends BaseEntity>(entityType: object, entities: T[], file: string) {
@@ -12,9 +12,9 @@ class EntityExporter {
             const meta = {
                 createdAt: new Date(),
                 class: (entityType as any).name,
-                tablePrefix: serviceInstance.getTablePrefix(entityType),
-                table: serviceInstance.getDefaultTable(entityType),
-                schemas: serviceInstance.getSchemasJson(entityType),
+                tablePrefix: redisOrm.getTablePrefix(entityType),
+                table: redisOrm.getDefaultTable(entityType),
+                schemas: redisOrm.getSchemasJson(entityType),
                 total: entities.length,
             };
             writeStream.write(JSON.stringify(meta, schemaJsonReplacer) + "\r\n");
@@ -95,7 +95,7 @@ class EntityExporter {
                     try {
                         const entity = new (entityType as any)() as BaseEntity;
                         entity.setTable(table);
-                        entity.set(values);
+                        entity.setValues(values);
                         await entity.save();
 
                         if (values.deletedAt) {
@@ -128,7 +128,7 @@ class EntityExporter {
 
                     if (!skipSchemasCheck) {
                         const className = (entityType as any).name;
-                        const clientSchemas = serviceInstance.getSchemasJson(entityType);
+                        const clientSchemas = redisOrm.getSchemasJson(entityType);
                         if (meta.class !== className) {
                             const err = new Error();
                             err.message = `Class name: ${className} does not match with the import file: ${meta.class}`;

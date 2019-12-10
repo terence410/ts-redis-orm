@@ -32,7 +32,7 @@ import {
     Column, 
     Entity, 
     RedisOrmDecoratorError, 
-    RedisOrmEntityError, 
+    RedisOrmOperationError, 
     RedisOrmQueryError, 
     RedisOrmSchemaError,
     serviceInstance,
@@ -203,7 +203,7 @@ const main = async () => {
         } else if (err instanceof RedisOrmDecoratorError) {
             // error related to decorator, only throw at compile time
 
-        } else if (err instanceof RedisOrmEntityError) {
+        } else if (err instanceof RedisOrmOperationError) {
             // error related to entity operation
 
         } else if (err instanceof RedisOrmQueryError) {
@@ -230,9 +230,9 @@ const main = async () => {
   - logging the performance data of query
 - export NODE_ENV=production
   - it will try to load the config file "./redisorm.production.json"
-- export REDIS_ORM_CONFIG=./path/custom.json
+- export REDISORM_CONFIG_PATH=./path/custom.json
   - it will try to load the config file "./path/custom.json"
-  - this has higher priority than NODE_ENV
+  - this has a higher priority than NODE_ENV
   
 # Config file format (./redisorm.default.json)
 

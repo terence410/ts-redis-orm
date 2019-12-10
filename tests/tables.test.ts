@@ -1,5 +1,5 @@
 import { assert, expect } from "chai";
-import {BaseEntity, Column, Entity, RedisOrmEntityError, RedisOrmSchemaError} from "../src/";
+import {BaseEntity, Column, Entity, RedisOrmOperationError, RedisOrmSchemaError} from "../src/";
 
 @Entity({table: "testing_tables", tablePrefix: "prefix_"})
 class TestingTables extends BaseEntity {

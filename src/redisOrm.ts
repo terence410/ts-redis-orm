@@ -5,7 +5,7 @@ import * as path from "path";
 import {configLoader} from "./configLoader";
 import {RedisOrmDecoratorError} from "./errors/RedisOrmDecoratorError";
 import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
-import {IEntityMeta, IRedisContainer, ISchema, ISchemas} from "./types";
+import {IEntityColumn, IEntityColumns, IEntityMeta, IRedisContainer} from "./types";
 
 const debug = Debug("redisorm/default");
 
@@ -13,9 +13,10 @@ const IOREDIS_ERROR_RETRY_DELAY = 1000;
 const IOREDIS_CONNECT_TIMEOUT = 10000;
 const IOREDIS_REIGSTER_LUA_DELAY = 100;
 
-class ServiceInstance {
+// Notes: Schemas is similar to entitySchemas, schemas refers to entire table structure while entityColumns refer to decorator structure
+class RedisOrm {
     private _entityMetas = new Map<object, IEntityMeta>();
-    private _entitySchemas = new Map<object, {[key: string]: ISchema}>();
+    private _entityColumns = new Map<object, {[key: string]: IEntityColumn}>();
     private _entitySchemasJsons = new Map<object, string>(); // cache for faster JSON.stringify
 
     // region public methods: set
@@ -28,13 +29,13 @@ class ServiceInstance {
     }
 
     /** @internal */
-    public addColumn(target: object, column: string, schema: ISchema) {
-        let schemas = this._entitySchemas.get(target);
-        if (!schemas) {
-            schemas = {};
-            this._entitySchemas.set(target, schemas);
+    public addColumn(target: object, column: string, entityColumn: IEntityColumn) {
+        let columns = this._entityColumns.get(target);
+        if (!columns) {
+            columns = {};
+            this._entityColumns.set(target, columns);
         }
-        schemas[column] = schema;
+        columns[column] = entityColumn;
     }
 
     // endregion
@@ -48,11 +49,6 @@ class ServiceInstance {
 
     public getConnectionConfigByConnection(connection: string): any {
         const configFile = configLoader.getConfigFile();
-
-        if (!configFile) {
-            throw new RedisOrmDecoratorError(`Config file not found. Please create redisorm.default.json in the project root folder.`);
-        }
-
         const rawData = fs.readFileSync(configFile);
         const connectionConfigs = JSON.parse(rawData.toString());
         if (!(connection in connectionConfigs)) {
@@ -89,49 +85,49 @@ class ServiceInstance {
     }
 
     public getPrimaryKeys(target: object): string[] {
-        const schemas = this.getSchemas(target);
-        return Object.entries(schemas).filter(x => x[1].primary).map(x => x[0]);
+        const entityColumns = this.getEntityColumns(target);
+        return Object.entries(entityColumns).filter(x => x[1].primary).map(x => x[0]);
     }
 
     public getAutoIncrementKey(target: object): string {
-        const schemas = this.getSchemas(target);
-        const filteredSchemas = Object.entries(schemas).find(x => x[1].autoIncrement);
-        return filteredSchemas ? filteredSchemas[0] : "";
+        const entityColumns = this.getEntityColumns(target);
+        const filteredEntityColumns = Object.entries(entityColumns).find(x => x[1].autoIncrement);
+        return filteredEntityColumns ? filteredEntityColumns[0] : "";
     }
 
     public getIndexKeys(target: object): string[] {
-        const schemas = this.getSchemas(target);
-        return Object.entries(schemas).filter(x => x[1].index).map(x => x[0]);
+        const entityColumns = this.getEntityColumns(target);
+        return Object.entries(entityColumns).filter(x => x[1].index).map(x => x[0]);
     }
 
     public getUniqueKeys(target: object): string[] {
-        const schemas = this.getSchemas(target);
-        return Object.entries(schemas).filter(x => x[1].unique).map(x => x[0]);
+        const entityColumns = this.getEntityColumns(target);
+        return Object.entries(entityColumns).filter(x => x[1].unique).map(x => x[0]);
     }
 
-    public getSchemas(target: object): {[key: string]: ISchema} {
-        return this._entitySchemas.get(target) || {};
+    public getEntityColumns(target: object): {[key: string]: IEntityColumn} {
+        return this._entityColumns.get(target) || {};
     }
 
     public getSchemasJson(target: object): string {
         if (!this._entitySchemasJsons.has(target)) {
-            const schemas = this.getSchemas(target);
-            const keys = Object.keys(schemas).sort();
-            const sortedSchemas = keys.reduce((a: any, b) => Object.assign(a, {[b]: schemas[b]}), {});
-            this._entitySchemasJsons.set(target, JSON.stringify(sortedSchemas, schemaJsonReplacer));
+            const entityColumns = this.getEntityColumns(target);
+            const keys = Object.keys(entityColumns).sort();
+            const sortedEntityColumns = keys.reduce((a: any, b) => Object.assign(a, {[b]: entityColumns[b]}), {});
+            this._entitySchemasJsons.set(target, JSON.stringify(sortedEntityColumns, schemaJsonReplacer));
         }
 
         return this._entitySchemasJsons.get(target) as string;
     }
 
-    public getSchema(target: object, column: string): ISchema {
-        const schemas = this.getSchemas(target);
-        return schemas[column];
+    public getEntityColumn(target: object, column: string): IEntityColumn {
+        const entityColumn = this.getEntityColumns(target);
+        return entityColumn[column];
     }
 
     public getColumns(target: object): string[] {
-        const schemas = this._entitySchemas.get(target) || {};
-        return Object.keys(schemas);
+        const entityColumns = this._entityColumns.get(target) || {};
+        return Object.keys(entityColumns);
     }
 
     public convertAsEntityId(target: object, idObject: {[key: string]: any} | string | number): string | undefined {
@@ -166,38 +162,38 @@ class ServiceInstance {
     }
 
     public isValidColumn(target: object, column: string) {
-        const keys = serviceInstance.getColumns(target);
+        const keys = redisOrm.getColumns(target);
         return keys.includes(column);
     }
 
     public isSearchableColumn(target: object, column: string) {
-        const schemas = serviceInstance.getSchemas(target);
-        return (column in schemas && [String, Number, Date, Boolean].includes(schemas[column].type));
+        const entityColumns = redisOrm.getEntityColumns(target);
+        return (column in entityColumns && [String, Number, Date, Boolean].includes(entityColumns[column].type));
     }
 
     public isUniqueKey(target: object, column: string) {
-        const keys = serviceInstance.getUniqueKeys(target);
+        const keys = redisOrm.getUniqueKeys(target);
         return keys.includes(column);
     }
 
     public isPrimaryKey(target: object, column: string) {
-        const keys = serviceInstance.getPrimaryKeys(target);
+        const keys = redisOrm.getPrimaryKeys(target);
         return keys.includes(column);
     }
 
     public isSortableColumn(target: object, column: string): boolean {
-        const schema = serviceInstance.getSchema(target, column);
-        return schema.type === Number || schema.type === Boolean || schema.type === Date;
+        const entityColumns = redisOrm.getEntityColumn(target, column);
+        return entityColumns.type === Number || entityColumns.type === Boolean || entityColumns.type === Date;
     }
 
     public isNumberColumn(target: object, column: string) {
-        const schema = serviceInstance.getSchema(target, column);
-        return schema.type === Number;
+        const entityColumns = redisOrm.getEntityColumn(target, column);
+        return entityColumns.type === Number;
     }
 
     public isDateColumn(target: object, column: string) {
-        const schema = serviceInstance.getSchema(target, column);
-        return schema.type === Date;
+        const entityColumns = redisOrm.getEntityColumn(target, column);
+        return entityColumns.type === Date;
     }
 
     // endregion
@@ -247,8 +243,8 @@ class ServiceInstance {
         return errors;
     }
 
-    public async getRemoteSchemas(target: object, tableName: string): Promise<{[key: string]: ISchema} | null> {
-        const redis = await serviceInstance.getRedis(target);
+    public async getRemoteSchemas(target: object, tableName: string): Promise<{[key: string]: IEntityColumn} | null> {
+        const redis = await redisOrm.getRedis(target);
         const storageKey = this.getSchemasStorageKey();
         const remoteSchemasString = await redis.hget(storageKey, tableName);
         if (remoteSchemasString) {
@@ -287,11 +283,11 @@ class ServiceInstance {
     }
 
     public async getRemoteSchemasList(connection: string = "default") {
-        const schemasList: ISchemas = {};
-        const connectionConfig = serviceInstance.getConnectionConfigByConnection(connection);
+        const schemasList: IEntityColumns = {};
+        const connectionConfig = redisOrm.getConnectionConfigByConnection(connection);
         if (connectionConfig) {
             const redis = new IORedis(connectionConfig);
-            const storageKey = serviceInstance.getSchemasStorageKey();
+            const storageKey = redisOrm.getSchemasStorageKey();
 
             const result = await redis.hgetall(storageKey);
             for (const [table, schemasString] of Object.entries(result)) {
@@ -369,27 +365,27 @@ class ServiceInstance {
                 continue;
             }
 
-            const clientSchema = clientSchemas[column] as ISchema;
-            const remoteSchema = remoteSchemas[column] as ISchema;
+            const clientEntityColumn = clientSchemas[column] as IEntityColumn;
+            const remoteEntityColumn = remoteSchemas[column] as IEntityColumn;
 
-            if (clientSchema.type !== remoteSchema.type) {
-                errors.push(`Incompatible type on column: ${column}, current value: ${clientSchema.type}, remove value: ${remoteSchema.type}`);
+            if (clientEntityColumn.type !== remoteEntityColumn.type) {
+                errors.push(`Incompatible type on column: ${column}, current value: ${clientEntityColumn.type}, remove value: ${remoteEntityColumn.type}`);
             }
 
-            if (clientSchema.index !== remoteSchema.index) {
-                errors.push(`Incompatible index on column: ${column}, current value: ${clientSchema.index}, remove value: ${remoteSchema.index}`);
+            if (clientEntityColumn.index !== remoteEntityColumn.index) {
+                errors.push(`Incompatible index on column: ${column}, current value: ${clientEntityColumn.index}, remove value: ${remoteEntityColumn.index}`);
             }
 
-            if (clientSchema.unique !== remoteSchema.unique) {
-                errors.push(`Incompatible unique on column: ${column}, current value: ${clientSchema.unique}, remove value: ${remoteSchema.unique}`);
+            if (clientEntityColumn.unique !== remoteEntityColumn.unique) {
+                errors.push(`Incompatible unique on column: ${column}, current value: ${clientEntityColumn.unique}, remove value: ${remoteEntityColumn.unique}`);
             }
 
-            if (clientSchema.autoIncrement !== remoteSchema.autoIncrement) {
-                errors.push(`Incompatible autoIncrement on column: ${column}, current value: ${clientSchema.autoIncrement}, remove value: ${remoteSchema.autoIncrement}`);
+            if (clientEntityColumn.autoIncrement !== remoteEntityColumn.autoIncrement) {
+                errors.push(`Incompatible autoIncrement on column: ${column}, current value: ${clientEntityColumn.autoIncrement}, remove value: ${remoteEntityColumn.autoIncrement}`);
             }
 
-            if (clientSchema.primary !== remoteSchema.primary) {
-                errors.push(`Incompatible primary on column: ${column}, current value: ${clientSchema.primary}, remove value: ${remoteSchema.primary}`);
+            if (clientEntityColumn.primary !== remoteEntityColumn.primary) {
+                errors.push(`Incompatible primary on column: ${column}, current value: ${clientEntityColumn.primary}, remove value: ${remoteEntityColumn.primary}`);
             }
         }
 
@@ -418,7 +414,7 @@ class ServiceInstance {
     // endregion
 }
 
-export const serviceInstance = new ServiceInstance();
+export const redisOrm = new RedisOrm();
 export function schemaJsonReplacer(key: any, value: any) {
     if (key === "type" && [String, Number, Boolean, Date, Array, Object].includes(value)) {
         return value.name;

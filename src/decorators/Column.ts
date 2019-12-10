@@ -1,62 +1,61 @@
 import "reflect-metadata";
 import {RedisOrmDecoratorError} from "..";
-import {serviceInstance} from "../serviceInstance";
-import {ISchema, ISchemaBase} from "../types";
+import {redisOrm} from "../redisOrm";
+import {IEntityColumn, IEntityColumnBase} from "../types";
 
-function validSchema(target: object, schema: ISchema) {
-    // only one schema
-    const autoIncrementKey = serviceInstance.getAutoIncrementKey(target);
+function validEntityColumn(target: object, entityColumn: IEntityColumn) {
+    // only one increment key
+    const autoIncrementKey = redisOrm.getAutoIncrementKey(target);
     if (autoIncrementKey) {
-        if (schema.autoIncrement) {
+        if (entityColumn.autoIncrement) {
             throw new RedisOrmDecoratorError(`(${(target as any).name}) AutoIncrement already exist for column: ${autoIncrementKey}`);
         }
 
-        if (schema.primary) {
+        if (entityColumn.primary) {
             throw new RedisOrmDecoratorError(`(${(target as any).name}) AutoIncrement can only work with one primary key`);
         }
     }
 
-    if (schema.autoIncrement && !schema.primary) {
+    if (entityColumn.autoIncrement && !entityColumn.primary) {
         throw new RedisOrmDecoratorError(`(${(target as any).name}) AutoIncrement needs pair up with primary key`);
     }
 
-    if (schema.primary) {
-        if (schema.type !== String && schema.type !== Number) {
+    if (entityColumn.primary) {
+        if (entityColumn.type !== String && entityColumn.type !== Number) {
             throw new RedisOrmDecoratorError(`(${(target as any).name}) Primary key only supports String or Number`);
         }
     }
 
-    if (schema.index) {
-        if (schema.type !== Number && schema.type !== Boolean && schema.type !== Date) {
+    if (entityColumn.index) {
+        if (entityColumn.type !== Number && entityColumn.type !== Boolean && entityColumn.type !== Date) {
             throw new RedisOrmDecoratorError(`(${(target as any).name}) Index only supports Number, Boolean or Date`);
         }
     }
 
-    if (schema.unique) {
-        if (schema.type !== String && schema.type !== Number) {
+    if (entityColumn.unique) {
+        if (entityColumn.type !== String && entityColumn.type !== Number) {
             throw new RedisOrmDecoratorError(`(${(target as any).name}) Unique only supports String or Number`);
         }
     }
 }
 
-export function Column(schema: {[P in keyof ISchemaBase]?: ISchemaBase[P]} = {}) {
+export function Column(entityColumn: {[P in keyof IEntityColumnBase]?: IEntityColumnBase[P]} = {}) {
     return (target: object, propertyKey: string) => {
         const propertyType = Reflect.getMetadata("design:type", target, propertyKey);
-        const propertyType1 = Reflect.getMetadataKeys(target, propertyKey);
-        let newSchema: ISchema = {
+        let newEntityColumn: IEntityColumn = {
             type: propertyType,
             primary: false,
             autoIncrement: false,
             index: false,
             unique: false,
         };
-        newSchema = Object.assign(newSchema, schema);
+        newEntityColumn = Object.assign(newEntityColumn, entityColumn);
 
-        // validate schema
-        validSchema(target.constructor, newSchema);
+        // validate column
+        validEntityColumn(target.constructor, newEntityColumn);
 
-        // everything ok , add the schema
-        serviceInstance.addColumn(target.constructor, propertyKey, newSchema);
+        // everything ok , add the column
+        redisOrm.addColumn(target.constructor, propertyKey, newEntityColumn);
 
         // define getter / setter
         if (!Object.getOwnPropertyDescriptor(target.constructor.prototype, propertyKey)) {

@@ -22,7 +22,7 @@ describe("Primary Keys Test", () => {
         const entity = new TestingPrimaryKeys();
 
         // numberKey1 cannot be zero
-        entity.set({numberKey1: 0, numberKey2: 2, stringKey3: "three"});
+        entity.setValues({numberKey1: 0, numberKey2: 2, stringKey3: "three"});
         try {
             await entity.save();
             assert.isTrue(false);
@@ -31,7 +31,7 @@ describe("Primary Keys Test", () => {
         }
 
         // numberKey2 cannot be non integer
-        entity.set({numberKey1: 1, numberKey2: 2.2, stringKey3: "three"});
+        entity.setValues({numberKey1: 1, numberKey2: 2.2, stringKey3: "three"});
         try {
             await entity.save();
             assert.isTrue(false);
@@ -40,7 +40,7 @@ describe("Primary Keys Test", () => {
         }
 
         // stringKey3 cannot be empty string
-        entity.set({numberKey1: 1, numberKey2: 2.2, stringKey3: ""});
+        entity.setValues({numberKey1: 1, numberKey2: 2.2, stringKey3: ""});
         try {
             await entity.save();
             assert.isTrue(false);
@@ -49,7 +49,7 @@ describe("Primary Keys Test", () => {
         }
 
         const entityId = "1:2:three";
-        entity.set({numberKey1: 1, numberKey2: 2, stringKey3: "three"});
+        entity.setValues({numberKey1: 1, numberKey2: 2, stringKey3: "three"});
         await entity.save();
         assert.equal(entity.getEntityId(), entityId);
 

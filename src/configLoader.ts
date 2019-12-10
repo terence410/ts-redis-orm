@@ -1,11 +1,9 @@
-import Debug from "debug";
 import * as fs from "fs";
 import * as path from "path";
-
-const debug = Debug("redisorm/default");
+import {RedisOrmOperationError} from "./errors/RedisOrmOperationError";
 
 class ConfigLoader {
-    public getConfigFile(): string | null {
+    public getConfigFile(): string {
         let configFiles = [`redisorm.default.json`];
 
         if (process.env.NODE_ENV) {
@@ -18,17 +16,15 @@ class ConfigLoader {
         }
 
         for (const configFile of configFiles) {
-            debug(`Check if config file exists: ${configFile}`);
             try {
                 const result = fs.accessSync(configFile, fs.constants.F_OK);
-                debug(`Config file exists: ${configFile}`);
-                return path.join(process.cwd(), configFile);
+                return path.isAbsolute(configFile) ? configFile : path.join(process.cwd(), configFile);
             } catch (err) {
                 //
             }
         }
 
-        return null;
+        throw new RedisOrmOperationError(`Config file cannot not be found on the paths: ${configFiles.join(", ")}.`);
     }
 }
 

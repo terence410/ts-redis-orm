@@ -1,7 +1,8 @@
 import {assert, expect } from "chai";
 import clone from "clone";
-import {BaseEntity, Column, Entity} from "../src/";
-import {serviceInstance} from "../src/serviceInstance";
+import {BaseEntity, Column, Entity, RedisOrmOperationError} from "../src/";
+import {RedisOrmError} from "../src/errors/RedisOrmError";
+import {redisOrm} from "../src/redisOrm";
 
 type NullableString = string | null;
 type IObject = undefined | {
@@ -56,11 +57,11 @@ describe("General Test: Internal", () => {
     });
 
     it("meta", async () => {
-        assert.equal(serviceInstance.getDefaultTable(TestingGeneral), "testing_general");
-        assert.deepEqual(serviceInstance.getPrimaryKeys(TestingGeneral), ["id"]);
-        assert.equal(serviceInstance.getAutoIncrementKey(TestingGeneral), "id");
-        assert.includeMembers(serviceInstance.getIndexKeys(TestingGeneral), ["uniqueNumber", "date", "boolean"]);
-        assert.deepEqual(serviceInstance.getUniqueKeys(TestingGeneral), ["uniqueNumber"]);
+        assert.equal(redisOrm.getDefaultTable(TestingGeneral), "testing_general");
+        assert.deepEqual(redisOrm.getPrimaryKeys(TestingGeneral), ["id"]);
+        assert.equal(redisOrm.getAutoIncrementKey(TestingGeneral), "id");
+        assert.includeMembers(redisOrm.getIndexKeys(TestingGeneral), ["uniqueNumber", "date", "boolean"]);
+        assert.deepEqual(redisOrm.getUniqueKeys(TestingGeneral), ["uniqueNumber"]);
     });
 });
 
@@ -100,6 +101,9 @@ describe("General Test: Create Entity", () => {
         entity.uniqueNumber = id;
         entity.object = {createdAt: new Date(), name: "Michael Jackson"};
         entity.objectArray = [{createdAt: new Date(), name: "Michael Jackson"}];
+        entity.array.push(1);
+        entity.getValues().array.push(2);
+        
         await entity.save();
         assert.isFalse(entity.isNew);
         assert.equal(entity.getEntityId(), id.toString());
@@ -210,7 +214,13 @@ describe("General Test: Create Entity", () => {
             await newEntity.save();
             assert.isTrue(false);
         } catch (err) {
-            // console.log(err);
+            if (!(err instanceof RedisOrmOperationError)) {
+                assert.isTrue(false);
+            }
+
+            if (!(err instanceof RedisOrmError)) {
+                assert.isTrue(false);
+            }
         }
 
         // assign id = 0 and unique number
@@ -226,7 +236,7 @@ describe("General Test: Create Entity", () => {
         const createdAt = new Date(0);
         const updatedAt = new Date(1);
         const entity = TestingGeneral.create({id, uniqueNumber: id});
-        entity.set({createdAt, updatedAt});
+        entity.setValues({createdAt, updatedAt});
         await entity.save();
 
         assert.equal(entity.createdAt.getTime(), createdAt.getTime());
@@ -245,7 +255,7 @@ describe("General Test: Create Entity", () => {
         const deletedAt = new Date(2);
         const entity = TestingGeneral.create({id, uniqueNumber: id});
         await entity.save();
-        entity.set({deletedAt});
+        entity.setValues({deletedAt});
         await entity.delete();
 
         // use customized deleted time
@@ -459,7 +469,7 @@ describe("General Test: Create Entity", () => {
 
         const id = 1002;
         const entity = new TestingGeneral();
-        entity.set({number: initialValue, id, uniqueNumber: id});
+        entity.setValues({number: initialValue, id, uniqueNumber: id});
         await entity.save();
 
         // check index
@@ -544,13 +554,13 @@ describe("Events", () => {
 
 describe("Service Instance", () => {
     it("get entities", async () => {
-        const entityTypes = serviceInstance.getEntityTypes();
+        const entityTypes = redisOrm.getEntityTypes();
         const entityType = entityTypes.find(x => x === TestingGeneral);
         assert.isDefined(entityType);
     });
 
     it("get schemas list", async () => {
-        const schemasList = await serviceInstance.getRemoteSchemasList();
+        const schemasList = await redisOrm.getRemoteSchemasList();
         assert.hasAllKeys(schemasList, ["testing_general"]);
     });
 });
