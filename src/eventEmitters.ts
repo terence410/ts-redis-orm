@@ -1,7 +1,6 @@
 import {EventEmitter} from "events";
-import {IEventType} from "../build/types";
 import {BaseEntity} from "./BaseEntity";
-import {IEvents} from "./types";
+import {IEvents, IEventsType} from "./types";
 
 class EventEmitters {
     private _eventEmitters = new Map<object, any>();
@@ -14,7 +13,7 @@ class EventEmitters {
         return this._eventEmitters.get(target) as IEvents<InstanceType<T>>;
     }
 
-    public emit<T extends BaseEntity>(eventType: IEventType, entity: T) {
+    public emit<T extends BaseEntity>(eventType: IEventsType, entity: T) {
         const eventEmitter = this.getEventEmitter(entity.constructor as any);
         if (eventEmitter) {
             setImmediate(() => eventEmitter.emit(eventType, entity));
