@@ -99,6 +99,7 @@ describe("General Test: Create Entity", () => {
         const entity = new TestingGeneral();
         entity.id = id;
         entity.uniqueNumber = id;
+        entity.number = 0;
         entity.object = {createdAt: new Date(), name: "Michael Jackson"};
         entity.objectArray = [{createdAt: new Date(), name: "Michael Jackson"}];
         entity.array.push(1);
@@ -502,7 +503,7 @@ describe("Events", () => {
     it("create, update, delete, restore, forceDelete", async () => {
         const id = 10001;
         const entity = TestingGeneral.create({id, uniqueNumber: id});
-        const events = TestingGeneral.getEventEmitter();
+        const events = TestingGeneral.getEvents();
         let createdEntity: any = null;
         let updatedEntity: any = null;
         let deletedEntity: any = null;
@@ -510,43 +511,63 @@ describe("Events", () => {
         let restoredEntity: any = null;
 
         // create
-        events.once("create", (thisEntity) => {
-            createdEntity = thisEntity;
+        const promise1 = new Promise(resolve => {
+            events.once("create", (thisEntity) => {
+                createdEntity = thisEntity;
+                resolve();
+            });
         });
         await entity.save();
+        await promise1;
         assert.isNotNull(createdEntity);
         assert.equal(entity.id, (createdEntity as TestingGeneral).id);
 
         // create
         entity.string2 = "happy";
-        events.once("update", (thisEntity) => {
-            updatedEntity = thisEntity;
+        const promise2 = new Promise(resolve => {
+            events.once("update", (thisEntity) => {
+                updatedEntity = thisEntity;
+                resolve();
+            });
         });
         await entity.save();
+        await promise2;
         assert.isNotNull(updatedEntity);
         assert.equal(entity.string2, (updatedEntity as TestingGeneral).string2);
 
         // delete
-        events.once("delete", (thisEntity) => {
-            deletedEntity = thisEntity;
+        const promise3 = new Promise(resolve => {
+            events.once("delete", (thisEntity) => {
+                deletedEntity = thisEntity;
+                resolve();
+            });
         });
         await entity.delete();
+        await promise3;
         assert.isNotNull(deletedEntity);
         assert.equal(entity.isDeleted, (deletedEntity as TestingGeneral).isDeleted);
 
         // restore
-        events.once("restore", (thisEntity) => {
-            restoredEntity = thisEntity;
+        const promise4 = new Promise(resolve => {
+            events.once("restore", (thisEntity) => {
+                restoredEntity = thisEntity;
+                resolve();
+            });
         });
         await entity.restore();
+        await promise4;
         assert.isDefined(restoredEntity);
         assert.equal(entity.isDeleted, (restoredEntity as TestingGeneral).isDeleted);
 
         // forceDelete
-        events.once("forceDelete", (thisEntity) => {
-            forcedDeletedEntity = thisEntity;
+        const promise5 = new Promise(resolve => {
+            events.once("forceDelete", (thisEntity) => {
+                forcedDeletedEntity = thisEntity;
+                resolve();
+            });
         });
         await entity.forceDelete();
+        await promise5;
         assert.isNotNull(forcedDeletedEntity);
         assert.equal(entity.isDeleted, (forcedDeletedEntity as TestingGeneral).isDeleted);
     });
@@ -561,7 +582,7 @@ describe("Service Instance", () => {
 
     it("get schemas list", async () => {
         const schemasList = await redisOrm.getRemoteSchemasList();
-        assert.hasAllKeys(schemasList, ["testing_general"]);
+        assert.containsAllKeys(schemasList, ["testing_general"]);
     });
 });
 

@@ -58,12 +58,12 @@ export type IInstanceValues<T> = {[P in Exclude<keyof T, keyof BaseEntity>]: T[P
 export type IIdObject<T> = IArgvValues<T> | number | string;
 
 // event
-export type IEventType = "create" | "update" | "delete" | "forceDelete" | "restore";
-export interface IEvent<T> {
-    on(type: IEventType, callback: (entity: T) => void): this;
-    addListener(type: IEventType, callback: (entity: T) => void): this;
-    removeListener(type: IEventType, callback: (entity: T) => void): this;
-    once(type: IEventType, callback: (entity: T) => void): this;
-    off(type: IEventType, callback: (entity: T) => void): this;
-    emit(type: IEventType, entity: T): void;
+export type IEventsType = "create" | "update" | "delete" | "forceDelete" | "restore";
+export interface IEvents<T> {
+    on(type: IEventsType, callback: (entity: T) => void): this;
+    addListener(type: IEventsType, callback: (entity: T) => void): this;
+    removeListener(type: IEventsType, callback: (entity: T) => void): this;
+    once(type: IEventsType, callback: (entity: T) => void): this;
+    off(type: IEventsType, callback: (entity: T) => void): this;
+    emit(type: IEventsType, entity: T): void;
 }

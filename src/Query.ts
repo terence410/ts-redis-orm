@@ -65,7 +65,7 @@ export class Query<T extends typeof BaseEntity> {
 
             // we need to make sure if have all the keys exist in the storage strings
             const redis = await this._getRedis();
-            const storageStrings = await redis.hgetall(entityStorageKey);
+            const storageStrings = await redis.hgetall(entityStorageKey) as {[key: string]: string};
             if (primaryKeys.every(primaryKey => primaryKey in storageStrings)) {
                 if ((storageStrings.deletedAt !== "NaN") === this._onlyDeleted) {
                     entity = this._entityType.newFromStorageStrings(storageStrings);
@@ -413,16 +413,15 @@ export class Query<T extends typeof BaseEntity> {
 
         // redis params
         const indexStorageKey = redisOrm.getIndexStorageKey(this._tableName, column);
-        const extraParams = ["LIMIT", this._offset.toString(), this._limit.toString()];
 
         // collect result ids
         const redis = await this._getRedis();
         let ids: string[] = [];
 
         if (order === "asc") {
-            ids = await redis.zrangebyscore(indexStorageKey, min, max, ...extraParams);
+            ids = await redis.zrangebyscore(indexStorageKey, min, max, "LIMIT", this._offset, this._limit);
         } else if (order === "desc") {
-            ids = await redis.zrevrangebyscore(indexStorageKey, max, min, ...extraParams);
+            ids = await redis.zrevrangebyscore(indexStorageKey, max, min, "LIMIT", this._offset, this._limit);
         }
 
         return await this.findMany(ids);

@@ -6,7 +6,7 @@ import {eventEmitters} from "./eventEmitters";
 import {parser} from "./parser";
 import {Query} from "./Query";
 import {redisOrm} from "./redisOrm";
-import {IArgvValues, IEvent, IIdObject, IInstanceValues, ISaveResult} from "./types";
+import {IArgvValues, IEvents, IIdObject, IInstanceValues, ISaveResult} from "./types";
 
 // debug
 const debug = Debug("redisorm/default");
@@ -121,7 +121,7 @@ export class BaseEntity {
         }
     }
 
-    public static getEventEmitter<T extends typeof BaseEntity>(this: T): IEvent<InstanceType<T>> {
+    public static getEvents<T extends typeof BaseEntity>(this: T): IEvents<InstanceType<T>> {
         return eventEmitters.getEventEmitter(this);
     }
 
@@ -469,13 +469,13 @@ export class BaseEntity {
 
         // fire event
         if (isRestore) {
-            eventEmitters.getEventEmitter(this.constructor as any).emit("restore", this);
+            eventEmitters.emit("restore", this);
 
         } else {
             if (isNew) {
-                eventEmitters.getEventEmitter(this.constructor as any).emit("create", this);
+                eventEmitters.emit("create", this);
             } else {
-                eventEmitters.getEventEmitter(this.constructor as any).emit("update", this);
+                eventEmitters.emit("update", this);
             }
         }
 
@@ -530,9 +530,9 @@ export class BaseEntity {
 
         // fire event
         if (forceDelete) {
-            eventEmitters.getEventEmitter(this.constructor as any).emit("forceDelete", this);
+            eventEmitters.emit("forceDelete", this);
         } else {
-            eventEmitters.getEventEmitter(this.constructor as any).emit("delete", this);
+            eventEmitters.emit("delete", this);
         }
 
         return this;

@@ -1,0 +1,6 @@
+# Created by .ignore support plugin (hsz.mobi)
+.idea
+src
+tests
+tslint.json
+.travis.yml
