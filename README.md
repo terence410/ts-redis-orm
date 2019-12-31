@@ -1,6 +1,18 @@
 # Redis ORM (Typescript)
 
-[![NPM version](https://badge.fury.io/js/ts-redis-orm.png)](https://www.npmjs.com/package/ts-redis-orm)
+[![NPM version][npm-image]][npm-url]
+[![build status][travis-image]][travis-url]
+[![Test coverage][codecov-image]][codecov-url]
+[![David deps][david-image]][david-url]
+
+[npm-image]: https://img.shields.io/npm/v/ts-redis-orm.svg
+[npm-url]: https://npmjs.org/package/ts-datastoreorm
+[travis-image]: https://img.shields.io/travis/eggjs/egg.svg?style=flat-square
+[travis-url]: https://travis-ci.org/eggjs/egg
+[codecov-image]: https://img.shields.io/codecov/c/github/terence410/ts-redis-orm.svg?style=flat-square
+[codecov-url]: https://codecov.io/gh/terence410/ts-redis-orm
+[david-image]: https://img.shields.io/david/terence410/ts-redis-orm.svg?style=flat-square
+[david-url]: https://david-dm.org/terence410/ts-redis-orm
 
 [ts-redis-orm](https://www.npmjs.com/package/ts-redis-orm) targets to provide relational DB features to Redis Lover. 
 
