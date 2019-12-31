@@ -12,7 +12,8 @@ jobs:
         - npm install codecov -g
         - npm run test
       after_success:
-        - codecov -f coverage/coverag-final.json
+        - mv coverage/coverage-final.json coverage/coverage.json
+        - codecov
     - stage: npm release
       if: branch = master AND commit_message =~ /^[0-9]*\.[0-9]*\.[0-9]*$/
       before_deploy:

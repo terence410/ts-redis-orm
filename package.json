@@ -5,7 +5,7 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "test": "nyc --reporter=json mocha --exit -r ts-node/register tests/*.ts",
+    "test": "nyc --reporter=json --reporter=text mocha --exit -r ts-node/register tests/*.ts",
     "test-general": "mocha --exit --timeout 10000 -r ts-node/register tests/general.test.ts",
     "test-speed": "set debug=redisorm* & mocha --exit --timeout 10000 -r ts-node/register tests/speed.test.ts",
     "test-query": "mocha --exit --timeout 10000 -r ts-node/register tests/query.test.ts",
