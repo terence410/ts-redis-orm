@@ -8,6 +8,11 @@ jobs:
   include:
     - stage: testing
       if: branch in (develop)
+      script:
+        - npm install codecov -g
+        - npm run test
+      after_success:
+        - codecov -f coverage/coverag-final.json
     - stage: npm release
       if: branch = master AND commit_message =~ /^[0-9]*\.[0-9]*\.[0-9]*$/
       before_deploy:
