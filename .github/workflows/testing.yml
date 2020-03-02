@@ -14,7 +14,7 @@ jobs:
         image: redis
         ports:
           - 6379:6379
-          -
+
     strategy:
       max-parallel: 1
       matrix:
