@@ -6,7 +6,7 @@ export type ConnectionConfig = {
     port: number;
     connectTimeout: number;
     db: number;
-    trackCommandStats: boolean;
+    trackRedisInfo: boolean;
     showFriendlyErrorStack: boolean;
     maxConnectRetry: number;
     retryStrategy?: (times: number) => number;
@@ -15,7 +15,13 @@ export type ConnectionConfig = {
 export type IPerformanceResult = {
     executionTime: number;
     commandStats: any;
-    commandStatsUsed: any;
+    diffCommandStats: any;
+    usedCpuSys: number;
+    diffUsedCpuSys: number;
+    usedCpuUser: number;
+    diffUsedCpuUser: number;
+    usedMemory: number;
+    diffUsedMemory: number;
 };
 
 // decorator

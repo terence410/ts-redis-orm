@@ -289,7 +289,7 @@ class RedisOrm {
         const redis = await redisOrm.getRedis(target);
         const connectionConfig = this.getConnectionConfig(target);
         const performanceHelper = new PerformanceHelper(redis,
-            {trackCommandStats: connectionConfig.trackCommandStats, skipTracking});
+            {trackRedisInfo: connectionConfig.trackRedisInfo, skipTracking});
         await performanceHelper.start();
         return performanceHelper;
     }

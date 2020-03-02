@@ -4,7 +4,7 @@
     "port": 6379,
     "connectTimeout": 1000,
     "db": 0,
-    "trackCommandStats": true,
+    "trackRedisInfo": true,
     "showFriendlyErrorStack": false,
     "maxConnectRetry": 10
   },
@@ -13,7 +13,7 @@
     "port": 6378,
     "connectTimeout": 500,
     "db": 0,
-    "trackCommandStats": true,
+    "trackRedisInfo": true,
     "showFriendlyErrorStack": false,
     "maxConnectRetry": 3
   }

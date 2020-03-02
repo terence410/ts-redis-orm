@@ -49,7 +49,7 @@ describe("General Test: Internal", () => {
     });
 
     it("check count", async () => {
-        const [total, perforamnceResult] = await TestingGeneral.count();
+        const [total, performanceResult] = await TestingGeneral.count();
         assert.equal(total, 0);
     });
 
@@ -453,6 +453,6 @@ describe("Service Instance", () => {
 
 describe("Clean up", () => {
     it("truncate", async () => {
-        await TestingGeneral.truncate("TestingGeneral");
+        const [totalDeleted, performanceResult] = await TestingGeneral.truncate("TestingGeneral");
     });
 });

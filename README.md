@@ -33,7 +33,13 @@ console.log(performanceResult);
 {
     executionTime: number;
     commandStats: object;
-    commandStatsUsed: object;
+    diffCommandStats: object;
+    usedCpuSys: number;
+    diffUsedCpuSys: number;
+    usedCpuUser: number;
+    diffUsedCpuUser: number;
+    usedMemory: number;
+    diffUsedMemory: number;
 }
 ```
 - removed updatedAt, deletedAt columns
@@ -270,7 +276,7 @@ const main = async () => {
     "db": 0,
     "showFriendlyErrorStack": false,
     // report more detailed report on redis for every operations
-    "trackCommandStats": false,
+    "trackRedisInfo": false,
     // this is an extra feature supported by ts-redis-orm, if redis suddenly go offline, the entity can prompt for an connection error.
     "maxConnectRetry": 5
   }
