@@ -1,9 +1,9 @@
 import { assert, expect } from "chai";
 import {BaseEntity, Column, Entity} from "../src/";
 
-@Entity({table: "testing_error_connection", connection: "testing"})
+@Entity({table: "TestingErrorConnection", connection: "testing"})
 class TestingErrorConnection extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({autoIncrement: true})
     public id: number = 0;
 }
 

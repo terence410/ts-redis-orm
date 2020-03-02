@@ -85,7 +85,7 @@ if #createUniqueKeys > 0 then
                 if value ~= false then
                     local existEntityId = redis.call("HGET", currUniqueStorageKey, value)
                     if existEntityId ~= false then
-                        currUniqueError = "Unique key: " .. uniqueKey .. " with value: " .. value .. " already exist on entity id: " .. existEntityId .. ". Current entity id: " .. entityId
+                        currUniqueError = "Unique key \"" .. uniqueKey .. "\" with value \"" .. value .. "\" already exist on entity id \"" .. existEntityId .. "\""
                         break
                     end
 

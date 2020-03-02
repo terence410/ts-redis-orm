@@ -2,16 +2,16 @@ import {
     BaseEntity,
     Column,
     Entity,
+    redisOrm,
     RedisOrmDecoratorError,
     RedisOrmOperationError,
     RedisOrmQueryError,
     RedisOrmSchemaError,
-    redisOrm,
 } from "./src/"; // from "ts-redis-orm"
 
-@Entity({connection: "default", table: "entity", indexUpdatedAt: true})
+@Entity({connection: "default", table: "Entity"})
 class MyEntity extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({autoIncrement: true})
     public id: number = 0;
 
     @Column({unique: true})
@@ -50,31 +50,27 @@ const main = async () => {
     // we have an internal schema protection
     // if we encounter a schema error, you can try to resync it once
     try {
-        await MyEntity.create({}).save();
+        const [entity, performanceResult1] = await MyEntity.create({}).save();
     } catch (err) {
         if (err instanceof RedisOrmSchemaError) {
-            await MyEntity.resyncDb();
+            const [hasResync, performanceResult2] = await MyEntity.resyncDb();
         }
     }
 
     // truncate the DB, need to provide class name for protection
-    await MyEntity.truncate("MyEntity");
+    const [totalDeleted, performanceResult3] = await MyEntity.truncate("MyEntity");
 
     // create entity
     const entity1 = new MyEntity();
     const entity2 = entity1.clone();
     const entity3 = MyEntity.create({id: 1});
     const createdAt = entity1.createdAt; // create time of entity (the moment u create the object, not the time u save it to Redis).
-    const updatedAt = entity1.updatedAt; // last update time of entity.
-    const deletedAt = entity1.deletedAt; // only exist when entity is deleted, it will return Invalid Date for most cases.
 
     // set values
     entity1.id = 1;
     entity1.setValues({id: 1});
     entity1.increment("number", 10);
     entity1.createdAt = new Date(); // auto added into entity
-    entity1.updatedAt = new Date(); // auto added into entity
-    entity1.deletedAt = new Date(); // auto added into entity
 
     // get values
     const id1 = entity1.id;
@@ -82,23 +78,20 @@ const main = async () => {
     const entityId = entity1.getEntityId(); // internal identifier for the entity
 
     // save
-    await entity1.save();
-    await entity1.delete(); // soft delete
-    await entity1.forceDelete();
-    await entity1.restore();
+    const [entity1a, performanceResult4] = await entity1.save();
+    const [entity1b, performanceResult5] = await entity1.delete(); // soft delete
 
     // simple query
-    const total = await MyEntity.count();
-    const all = await MyEntity.all();
-    const entity4 = MyEntity.find(1);
-    const entity5 = MyEntity.find({id: 1, string: "name"});
-    const entity6 = MyEntity.findMany([1, 2, 3, {id: 1, string: "name"}]);
+    const [total] = await MyEntity.count();
+    const [all] = await MyEntity.all();
+    const [entity4] = await MyEntity.find(1);
+    const [entities5] = await MyEntity.findMany([1, 2, 3]);
 
     // complex query
-    const entity7 = await MyEntity.query().findUnique("string", "string");
-    const entities8 = await MyEntity.query().findUniqueMany("string", ["string1", "string2"]);
-    const entities9 = await MyEntity.query().where("number", "=", 5).first();
-    const entities10 = await MyEntity
+    const [entity6] = await MyEntity.query().findUnique("string", "string");
+    const [entities7] = await MyEntity.query().findUniqueMany("string", ["string1", "string2"]);
+    const [entities8] = await MyEntity.query().where("number", "=", 5).runOnce();
+    const [entities9] = await MyEntity
         .query()
         // if column is indexed
         .where("number", "=", 5)
@@ -113,26 +106,20 @@ const main = async () => {
         .sortBy("number", "desc")
         .offset(10)
         .limit(10)
-        .get();
-
-    // query deleted (you can only query exist or delete records, but not both)
-    const entities11 = MyEntity
-        .query()
-        .onlyDeleted()
-        .get();
+        .run();
 
     // aggregate query
-    const count = await MyEntity.query().count();
-    const sum = await MyEntity.query().sum("number");
-    const min = await MyEntity.query().min("number");
-    const max = await MyEntity.query().max("number");
-    const avg = await MyEntity.query().avg("number");
-    const countGroup = await MyEntity.query().groupBy("string").count();
+    const [count] = await MyEntity.query().count();
+    const [sum] = await MyEntity.query().sum("number");
+    const [min] = await MyEntity.query().min("number");
+    const [max] = await MyEntity.query().max("number");
+    const [avg] = await MyEntity.query().avg("number");
+    const [countGroup] = await MyEntity.query().count("string");
 
     // rank (get the ordering of an entity from index, useful for doing ranking)
     const id = 1;
-    const rank = await MyEntity.query().rank("number", id);
-    const reversedRank = await MyEntity.query().rank("number", id, true);
+    const [rank] = await MyEntity.query().rank("number", id);
+    const [reversedRank] = await MyEntity.query().rank("number", id, true);
 
     // export / import
     await MyEntity.export("path");
@@ -144,8 +131,6 @@ const main = async () => {
     events.on("create", (entity) => { /* */ });
     events.on("update", (entity) => { /* */ });
     events.on("delete", (entity) => { /* */ });
-    events.on("forceDelete", (entity) => { /* */ });
-    events.on("restore", (entity) => { /* */ });
 
     // dynamic tables
     const table = "another-table";
@@ -158,7 +143,7 @@ const main = async () => {
     const currentTable = entity10.getTable();
     entity10.id = 10;
     await entity10.save();
-    const entity10a = await MyEntity.query().setTable(table).find(10);
+    const [entity10a] = await MyEntity.query().setTable(table).find(10);
 
     // others
     const removeSchemasList = redisOrm.getRemoteSchemasList("connectionKey");
@@ -183,4 +168,4 @@ const main = async () => {
             // ioredis error or other unkonw errors
         }
     }
-};
+}

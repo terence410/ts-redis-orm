@@ -1,13 +1,10 @@
-import Debug from "debug";
 import * as fs from "fs";
 import IORedis from "ioredis";
 import * as path from "path";
 import {configLoader} from "./configLoader";
 import {RedisOrmDecoratorError} from "./errors/RedisOrmDecoratorError";
-import {RedisOrmQueryError} from "./errors/RedisOrmQueryError";
-import {IEntityColumn, IEntityColumns, IEntityMeta, IRedisContainer} from "./types";
-
-const debug = Debug("redisorm/default");
+import {PerformanceHelper} from "./helpers/PerformanceHelper";
+import {ConnectionConfig, IEntityColumn, IEntityColumns, IEntityMeta, IIdType, IRedisContainer} from "./types";
 
 const IOREDIS_ERROR_RETRY_DELAY = 1000;
 const IOREDIS_CONNECT_TIMEOUT = 10000;
@@ -18,6 +15,7 @@ class RedisOrm {
     private _entityMetas = new Map<object, IEntityMeta>();
     private _entityColumns = new Map<object, {[key: string]: IEntityColumn}>();
     private _entitySchemasJsons = new Map<object, string>(); // cache for faster JSON.stringify
+    private _connectionConfigs!: {[key: string]: ConnectionConfig};
 
     // region public methods: set
 
@@ -42,30 +40,38 @@ class RedisOrm {
     
     // region public methods: get
 
-    public getConnectionConfig(target: object): any {
+    public getConnectionConfig(target: object): ConnectionConfig {
         const connection = this.getConnection(target);
         return this.getConnectionConfigByConnection(connection);
     }
 
-    public getConnectionConfigByConnection(connection: string): any {
-        const configFile = configLoader.getConfigFile();
-        const rawData = fs.readFileSync(configFile);
-        const connectionConfigs = JSON.parse(rawData.toString());
-        if (!(connection in connectionConfigs)) {
-            throw new RedisOrmDecoratorError(`Invalid connection: ${connection}. Please check ${configFile}`);
+    public getConnectionConfigByConnection(connection: string): ConnectionConfig {
+        if (!this._connectionConfigs) {
+            const configFile = configLoader.getConfigFile();
+            const rawData = fs.readFileSync(configFile);
+            const connectionConfigs = JSON.parse(rawData.toString());
+
+            // add retry add retry strategy if needed to trigger connect error
+
+            for (const key of Object.keys(connectionConfigs)) {
+                const connectionConfig = connectionConfigs[key];
+                const maxConnectRetry = connectionConfig.maxConnectRetry;
+                if (maxConnectRetry) {
+                    const connectTimeout = connectionConfig.connectTimeout || IOREDIS_CONNECT_TIMEOUT;
+                    connectionConfig.retryStrategy = (times: number) => {
+                        return times > maxConnectRetry ? null : IOREDIS_ERROR_RETRY_DELAY;
+                    };
+                }
+            }
+
+            this._connectionConfigs = connectionConfigs;
         }
 
-        // add retry add retry strategy if needed to trigger connect error
-        const connectionConfig = connectionConfigs[connection];
-        const maxConnectRetry = connectionConfig.maxConnectRetry;
-        if (maxConnectRetry) {
-            const connectTimeout = connectionConfig.connectTimeout || IOREDIS_CONNECT_TIMEOUT;
-            connectionConfig.retryStrategy = (times: number) => {
-                return times > maxConnectRetry ? null : IOREDIS_ERROR_RETRY_DELAY;
-            };
+        if (!(connection in this._connectionConfigs)) {
+            throw new RedisOrmDecoratorError(`Invalid connection: ${connection}. Please check ${configLoader.getConfigFile()}`);
         }
 
-        return connectionConfig;
+        return this._connectionConfigs[connection];
     }
 
     public getEntityMeta(target: object): IEntityMeta {
@@ -84,14 +90,18 @@ class RedisOrm {
         return this.getEntityMeta(target).connection;
     }
 
-    public getPrimaryKeys(target: object): string[] {
+    public hasPrimaryKey(target: object): boolean {
         const entityColumns = this.getEntityColumns(target);
-        return Object.entries(entityColumns).filter(x => x[1].primary).map(x => x[0]);
+        return Object.entries(entityColumns).some(x => x[1].primary);
+    }
+
+    public getPrimaryKey(target: object): string {
+        return "id";
     }
 
     public getAutoIncrementKey(target: object): string {
         const entityColumns = this.getEntityColumns(target);
-        const filteredEntityColumns = Object.entries(entityColumns).find(x => x[1].autoIncrement);
+        const filteredEntityColumns = Object.entries(entityColumns).find(x => x[1].primary && x[1].autoIncrement);
         return filteredEntityColumns ? filteredEntityColumns[0] : "";
     }
 
@@ -130,28 +140,6 @@ class RedisOrm {
         return Object.keys(entityColumns);
     }
 
-    public convertAsEntityId(target: object, idObject: {[key: string]: any} | string | number): string | undefined {
-        const primaryKeys = this.getPrimaryKeys(target).sort();
-        if (idObject === null || idObject === undefined) {
-            throw new RedisOrmQueryError(`(${(target as any).name}) Invalid id: ${idObject}`);
-
-        } else if (typeof idObject === "string") {
-            return idObject;
-
-        } else if (typeof idObject === "number") {
-            return idObject.toString();
-
-        } else if (typeof idObject === "object") {
-            if (!primaryKeys.every(column => column in idObject)) {
-                throw new RedisOrmQueryError(`(${(target as any).name}) Invalid id ${JSON.stringify(idObject)}`);
-            }
-
-            return primaryKeys
-                .map(column => idObject[column].toString().replace(/:/g, ""))
-                .join(":");
-        }
-    }
-
     // endregion
 
     // region public methods: conditions
@@ -177,8 +165,8 @@ class RedisOrm {
     }
 
     public isPrimaryKey(target: object, column: string) {
-        const keys = redisOrm.getPrimaryKeys(target);
-        return keys.includes(column);
+        const key = redisOrm.getPrimaryKey(target);
+        return key === column;
     }
 
     public isSortableColumn(target: object, column: string): boolean {
@@ -213,8 +201,6 @@ class RedisOrm {
                 error: null,
             };
             entityMeta.redisMaster = redisContainer;
-
-            debug(`(${(target as any).name}) created redis connection`);
         }
 
         if (registerRedis) {
@@ -298,6 +284,16 @@ class RedisOrm {
         return schemasList;
     }
 
+    public async getPerformanceHelper(target: object, skipTracking?: boolean) {
+        // remove everything
+        const redis = await redisOrm.getRedis(target);
+        const connectionConfig = this.getConnectionConfig(target);
+        const performanceHelper = new PerformanceHelper(redis,
+            {trackCommandStats: connectionConfig.trackCommandStats, skipTracking});
+        await performanceHelper.start();
+        return performanceHelper;
+    }
+
     // endregion
 
     // region private methods
@@ -314,8 +310,6 @@ class RedisOrm {
             // register lua
             try {
                 await this._registerLua(target, redisContainer);
-
-                debug(`(${(target as any).name}) registered lua`);
             } catch (err) {
                 redisContainer.error = err;
             }

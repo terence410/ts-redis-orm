@@ -1,9 +1,9 @@
 import { assert, expect } from "chai";
 import {BaseEntity, Column, Entity} from "../src/";
 
-@Entity({table: "testing_query"})
+@Entity({table: "TestingQuery"})
 class TestingQuery extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({ autoIncrement: true})
     public id: number = 0;
 
     @Column({index: true})
@@ -38,6 +38,7 @@ describe("Query Test", () => {
     const groupByObject = {group1: 0, group2: 0, group3: 0, group4: 0, group5: 0, group6: 0, group7: 0};
     const groupBy = Object.keys(groupByObject);
     const filter = (x: any, i: number) => i % 2 !== 0;
+    const deleteFilter = (x: any, i: number) => i % 2 === 0;
 
     it("prepare variables", async () => {
         const now = new Date();
@@ -50,7 +51,7 @@ describe("Query Test", () => {
     });
     
     it("truncate", async () => {
-        await TestingQuery.truncate("TestingQuery");
+        const [totalDeleted, performanceResult] = await TestingQuery.truncate("TestingQuery");
     });
     
     it("create and delete entities", async () => {
@@ -62,23 +63,22 @@ describe("Query Test", () => {
             entity.indexDate = dates[i];
             entity.groupBy = groupBy[i % groupBy.length];
             await entity.save();
+        }
+    });
+
+    it("delete 50% entities", async () => {
+        const [entities, _] = await TestingQuery.query().sortBy("id", "asc").run();
+        for (const entity of entities.filter(deleteFilter)) {
             await entity.delete();
         }
     });
 
-    it("restore 50% entities", async () => {
-        const entities = await TestingQuery.query().onlyDeleted().sortBy("id", "asc").get();
-        for (const entity of entities.filter(filter)) {
-            await entity.restore();
-        }
-    });
-    
     it("test: aggregate int", async () => {
-        const count = await TestingQuery.query().count();
-        const sum = await TestingQuery.query().sum("indexInt");
-        const min = await TestingQuery.query().min("indexInt");
-        const max = await TestingQuery.query().max("indexInt");
-        const avg = await TestingQuery.query().avg("indexInt");
+        const [count] = await TestingQuery.query().count();
+        const [sum] = await TestingQuery.query().sum("indexInt");
+        const [min] = await TestingQuery.query().min("indexInt");
+        const [max] = await TestingQuery.query().max("indexInt");
+        const [avg] = await TestingQuery.query().avg("indexInt");
 
         const newInts = ints.filter(filter);
         assert.equal(count, newInts.length);
@@ -89,12 +89,12 @@ describe("Query Test", () => {
     });
 
     it("test: aggregate float (have precision problem)", async () => {
-        const minEntity = await TestingQuery.query().sortBy("indexFloat", "asc").first();
-        const count = await TestingQuery.query().count();
-        const sum = await TestingQuery.query().sum("indexFloat") as number;
-        const min = await TestingQuery.query().min("indexFloat") as number;
-        const max = await TestingQuery.query().max("indexFloat") as number;
-        const avg = await TestingQuery.query().avg("indexFloat") as number;
+        const minEntity = await TestingQuery.query().sortBy("indexFloat", "asc").runOnce();
+        const [count] = await TestingQuery.query().count();
+        const [sum] = await TestingQuery.query().sum("indexFloat");
+        const [min] = await TestingQuery.query().min("indexFloat");
+        const [max] = await TestingQuery.query().max("indexFloat");
+        const [avg] = await TestingQuery.query().avg("indexFloat");
 
         const newFloats = floats.filter(filter);
         assert.equal(count, newFloats.length);
@@ -105,11 +105,11 @@ describe("Query Test", () => {
     });
     
     it("test: aggregate int with group by", async () => {
-        const count = await TestingQuery.query().count();
-        const sum = await TestingQuery.query().groupBy("groupBy").sum("indexInt");
-        const min = await TestingQuery.query().groupBy("groupBy").min("indexInt");
-        const max = await TestingQuery.query().groupBy("groupBy").max("indexInt");
-        const avg = await TestingQuery.query().groupBy("groupBy").avg("indexInt");
+        const [count] = await TestingQuery.query().count();
+        const [sum] = await TestingQuery.query().sum("indexInt", "groupBy");
+        const [min] = await TestingQuery.query().min("indexInt", "groupBy");
+        const [max] = await TestingQuery.query().max("indexInt", "groupBy");
+        const [avg] = await TestingQuery.query().avg("indexInt", "groupBy");
 
         const sumInts: any = Object.assign({}, groupByObject);
         const minInts: any = Object.assign({}, groupByObject);

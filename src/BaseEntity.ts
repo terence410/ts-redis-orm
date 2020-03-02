@@ -1,15 +1,12 @@
-import Debug from "debug";
 import {entityExporter} from "./entityExporter";
 import {RedisOrmOperationError} from "./errors/RedisOrmOperationError";
 import {RedisOrmSchemaError} from "./errors/RedisOrmSchemaError";
 import {eventEmitters} from "./eventEmitters";
+import {PerformanceHelper} from "./helpers/PerformanceHelper";
 import {parser} from "./parser";
 import {Query} from "./Query";
 import {redisOrm} from "./redisOrm";
-import {IArgvValues, IEvents, IIdObject, IInstanceValues, ISaveResult} from "./types";
-
-// debug
-const debug = Debug("redisorm/default");
+import {IArgvValues, IEvents, IIdType, IInstanceValues, IPerformanceResult, ISaveResult} from "./types";
 
 export class BaseEntity {
     // region static methods
@@ -38,25 +35,23 @@ export class BaseEntity {
         return new Query(this);
     }
 
-    public static async find<T extends typeof BaseEntity>(this: T, id: IIdObject<InstanceType<T>>):
-        Promise<InstanceType<T> | undefined> {
+    public static async find<T extends typeof BaseEntity>(this: T, id: IIdType) {
         return await this.query().find(id);
     }
 
-    public static async findMany<T extends typeof BaseEntity>(this: T, idObjects: Array<IIdObject<InstanceType<T>>>):
-        Promise<Array<InstanceType<T>>> {
-        return await this.query().findMany(idObjects);
+    public static async findMany<T extends typeof BaseEntity>(this: T, ids: IIdType[]) {
+        return await this.query().findMany(ids);
     }
 
     public static create<T extends typeof BaseEntity>(this: T, values: IArgvValues<InstanceType<T>>): InstanceType<T> {
         return (new this() as InstanceType<T>).setValues(values);
     }
 
-    public static async all<T extends typeof BaseEntity>(this: T): Promise<Array<InstanceType<T>>> {
-        return await this.query().get();
+    public static async all<T extends typeof BaseEntity>(this: T) {
+        return await this.query().run();
     }
 
-    public static async count(): Promise<number> {
+    public static async count(): Promise<[number, IPerformanceResult]> {
         return await this.query().count();
     }
 
@@ -65,7 +60,7 @@ export class BaseEntity {
         return await redisOrm.getRedis(this, false);
     }
 
-    public static async resyncDb<T extends typeof BaseEntity>(this: T, table: string = "") {
+    public static async resyncDb<T extends typeof BaseEntity>(this: T, table: string = ""): Promise<[boolean, IPerformanceResult]> {
         // get redis,
         table = table || redisOrm.getDefaultTable(this);
         const tableName = redisOrm.getTablePrefix(this) + table;
@@ -82,20 +77,23 @@ export class BaseEntity {
             ];
 
             // remove everything
+            const performanceHelper = await redisOrm.getPerformanceHelper(this);
             const commandResult = await (redis as any).commandAtomicResyncDb(keys, params);
+            const performanceResult =  await performanceHelper.getResult();
+
             const saveResult = JSON.parse(commandResult) as ISaveResult;
 
             if (saveResult.error) {
                 throw new RedisOrmOperationError(`(${this.name}, ${tableName}) ${saveResult.error}`);
             }
-            
-            debug(`(${this.name}, ${tableName}) resync db complete`);
+
+            return [true, performanceResult];
         } else {
-            debug(`(${this.name}, ${tableName}) no schemas exist for resync db`);
+            return [false, PerformanceHelper.getEmptyResult()];
         }
     }
 
-    public static async truncate(className: string, table: string = "") {
+    public static async truncate(className: string, table: string = ""): Promise<[number, IPerformanceResult]> {
         if (className !== this.name) {
             throw new RedisOrmOperationError(`(${this.name}, ${table}) You need to provide the class name for truncate`);
         }
@@ -105,20 +103,22 @@ export class BaseEntity {
         const tableName = redisOrm.getTablePrefix(this) + table;
         const redis = await redisOrm.getRedis(this);
         const remoteSchemas = await redisOrm.getRemoteSchemas(this, tableName);
+        const performanceHelper = await redisOrm.getPerformanceHelper(this);
 
         // we truncate only if we found any schema exist
+        let total = 0;
         if (remoteSchemas) {
             // prepare arguments
             const keys: [] = [];
             const params = [tableName];
 
-            // remove everything
-            await (redis as any).commandAtomicTruncate(keys, params);
-
-            debug(`(${this.name}, ${tableName}) truncate complete`);
-        } else {
-            debug(`(${this.name}, ${tableName}) no schemas exist for truncate`);
+            const commandResult = await (redis as any).commandAtomicTruncate(keys, params);
+            const result = JSON.parse(commandResult);
+            total = result.total;
         }
+
+        const performanceResult =  await performanceHelper.getResult();
+        return [total, performanceResult];
     }
 
     public static getEvents<T extends typeof BaseEntity>(this: T): IEvents<InstanceType<T>> {
@@ -129,7 +129,7 @@ export class BaseEntity {
         const entityColumns = redisOrm.getEntityColumns(this);
         const indexKeys = redisOrm.getIndexKeys(this);
         const uniqueKeys = redisOrm.getUniqueKeys(this);
-        const primaryKeys = redisOrm.getPrimaryKeys(this);
+        const primaryKey = redisOrm.getPrimaryKey(this);
         const autoIncrementKey = redisOrm.getAutoIncrementKey(this);
         const entityMeta = redisOrm.getEntityMeta(this);
 
@@ -141,12 +141,11 @@ export class BaseEntity {
             columnTypes,
             indexKeys,
             uniqueKeys,
-            primaryKeys,
+            primaryKey,
             autoIncrementKey,
             table: entityMeta.table,
             tablePrefix: entityMeta.tablePrefix,
             connection: entityMeta.connection,
-            indexUpdatedAt: entityMeta.indexUpdatedAt,
         };
     }
 
@@ -156,9 +155,8 @@ export class BaseEntity {
 
     public static async export(file: string, table: string = "") {
         table = table || redisOrm.getDefaultTable(this);
-        const all = await this.query().setTable(table).get();
-        const allDeleted = await this.query().onlyDeleted().get();
-        await this.exportEntities([...all, ...allDeleted], file);
+        const [allEntities] = await this.query().setTable(table).run();
+        await this.exportEntities(allEntities, file);
     }
 
     public static async exportEntities<T extends BaseEntity>(entities: T[], file: string) {
@@ -191,7 +189,6 @@ export class BaseEntity {
     constructor() {
         const now = new Date();
         this.createdAt = now;
-        this.updatedAt = now;
         this.setTable(redisOrm.getDefaultTable(this.constructor));
     }
 
@@ -199,17 +196,13 @@ export class BaseEntity {
 
     // region public get properties: conditions
 
-    public get isDeleted(): boolean {
-        return !isNaN(Number(this._storageStrings.deletedAt));
-    }
-
     public get isNew(): boolean {
         return this._isNew;
     }
 
     // endregion
 
-    // region public properties: createdAt, updatedAt, deletedAt
+    // region public properties
 
     public get createdAt(): Date {
         return this._get("createdAt");
@@ -217,22 +210,6 @@ export class BaseEntity {
 
     public set createdAt(value: Date) {
         this._set("createdAt", value);
-    }
-
-    public get updatedAt(): Date {
-        return this._get("updatedAt");
-    }
-
-    public set updatedAt(value: Date) {
-        this._set("updatedAt", value);
-    }
-
-    public get deletedAt(): Date {
-        return this._get("deletedAt");
-    }
-
-    public set deletedAt(value: Date) {
-        this._set("deletedAt", value);
     }
 
     // endregion
@@ -249,30 +226,26 @@ export class BaseEntity {
     }
 
     public getEntityId(): string {
-        const primaryKeys = redisOrm.getPrimaryKeys(this.constructor).sort();
+        const primaryKey = redisOrm.getPrimaryKey(this.constructor);
         const values: string[] = [];
 
-        for (const column of primaryKeys) {
-            const value = this._get(column);
-            if (typeof value === "number") {
-                if (value && Number.isInteger(value)) {
-                    values.push(value.toString().replace(/:/g, ""));
-                } else {
-                    throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) Invalid number value: ${value} for primary key: ${column}`);
-                }
-
-            } else if (typeof value === "string") {
-                if (value) {
-                    values.push(value.replace(/:/g, ""));
-                } else {
-                    throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) Invalid string value: '${value}' for primary key: ${column}`);
-                }
+        const value = this._get(primaryKey);
+        if (typeof value === "number") {
+            if (value && Number.isInteger(value)) {
+                return value.toString();
             } else {
-                throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) Invalid value: ${value} for primary key: ${column}`);
+                throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) Invalid number value: ${value} for primary key: ${primaryKey}`);
             }
-        }
 
-        return values.join(":");
+        } else if (typeof value === "string") {
+            if (value) {
+                return value;
+            } else {
+                throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) Invalid string value: '${value}' for primary key: ${primaryKey}`);
+            }
+        } else {
+            throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) Invalid value: ${value} for primary key: ${primaryKey}`);
+        }
     }
 
     public getValues<T extends BaseEntity>(this: T) {
@@ -320,15 +293,7 @@ export class BaseEntity {
     }
 
     public async delete() {
-        return await this._deleteInternal({forceDelete: false});
-    }
-
-    public async forceDelete() {
-        return await this._deleteInternal({forceDelete: true});
-    }
-
-    public async restore() {
-        return await this._saveInternal({isRestore: true});
+        return await this._deleteInternal();
     }
 
     public clone(): this {
@@ -382,26 +347,14 @@ export class BaseEntity {
 
     // region private methods: common
 
-    private async _saveInternal({isRestore = false} = {}) {
-        if (this.isDeleted && !isRestore) {
-            throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) You cannot update a deleted entity`);
-        }
-
+    private async _saveInternal(): Promise<[this, IPerformanceResult]> {
         const changes = this._getChanges();
         if (Object.keys(changes).length === 0) {
             // no changes and no increments, no need to save
-            if (!isRestore && Object.keys(this._increments).length === 0) {
-                return this;
+            if (Object.keys(this._increments).length === 0) {
+                return [this, PerformanceHelper.getEmptyResult()];
             }
         }
-
-        // update updatedAt if user didn't update it explicitly
-        if (!changes.updatedAt) {
-            changes.updatedAt = parser.parseValueToStorageString(Date, new Date());
-        }
-
-        // remove deletedAt for all situation
-        changes.deletedAt = parser.parseValueToStorageString(Date, new Date(Number.NaN));
 
         // prepare redis lua command parameters
         const indexKeys = redisOrm.getIndexKeys(this.constructor);
@@ -428,12 +381,13 @@ export class BaseEntity {
             JSON.stringify(uniqueKeys),
             JSON.stringify(changes),
             JSON.stringify(this._increments),
-            isRestore,
         ];
 
         const redis = await redisOrm.getRedis(this.constructor);
+        const performanceHelper = await redisOrm.getPerformanceHelper(this.constructor);
         const commandResult =  await (redis as any).commandAtomicSave([], params);
         const saveResult = JSON.parse(commandResult) as ISaveResult;
+        const performanceResult =  await performanceHelper.getResult();
 
         if (saveResult.error) {
             if (saveResult.error === "Mismatch with remote Schemas") {
@@ -468,21 +422,17 @@ export class BaseEntity {
         this._isNew = false;
 
         // fire event
-        if (isRestore) {
-            eventEmitters.emit("restore", this);
 
+        if (isNew) {
+            eventEmitters.emit("create", this);
         } else {
-            if (isNew) {
-                eventEmitters.emit("create", this);
-            } else {
-                eventEmitters.emit("update", this);
-            }
+            eventEmitters.emit("update", this);
         }
 
-        return this;
+        return [this, performanceResult];
     }
 
-    private async _deleteInternal({forceDelete = false} = {}) {
+    private async _deleteInternal(): Promise<[this, IPerformanceResult]> {
         // checking
         if (this.isNew) {
             throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) You cannot delete a new entity`);
@@ -490,15 +440,6 @@ export class BaseEntity {
 
         // if it's soft delete
         const entityMeta = redisOrm.getEntityMeta(this.constructor);
-        if (!forceDelete && this.isDeleted) {
-            throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) You cannot delete a deleted entity`);
-        }
-
-        // if we didn't set deletedAt, set a new one
-        let deletedAt = this.deletedAt;
-        if (isNaN(deletedAt.getTime())) {
-            deletedAt = new Date();
-        }
 
         // prepare redis lua command parameters
         const entityId = this.getEntityId();
@@ -509,33 +450,31 @@ export class BaseEntity {
         const params = [
             redisOrm.getSchemasJson(this.constructor),
             entityId,
-            !forceDelete,
             this._tableName,
-            deletedAt.getTime(),
             JSON.stringify(indexKeys),
             JSON.stringify(uniqueKeys),
         ];
 
         const redis = await redisOrm.getRedis(this.constructor);
+        const performanceHelper = await redisOrm.getPerformanceHelper(this.constructor);
         const commandResult =  await (redis as any).commandAtomicDelete(keys, params);
         const saveResult = JSON.parse(commandResult) as ISaveResult;
+        const performanceResult =  await performanceHelper.getResult();
 
         // throw error if there is any
         if (saveResult.error) {
-            throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) ${saveResult.error}`);
+            if (saveResult.error === "Mismatch with remote Schemas") {
+                const schemaErrors = await redisOrm.compareSchemas(this.constructor, this._tableName);
+                throw new RedisOrmSchemaError(`(${this.constructor.name}, ${this._tableName}) ${saveResult.error}`, schemaErrors);
+            } else {
+                throw new RedisOrmOperationError(`(${this.constructor.name}, ${this._tableName}) ${saveResult.error}`);
+            }
         }
-
-        // update deleted At
-        this._set("deletedAt", deletedAt, true);
 
         // fire event
-        if (forceDelete) {
-            eventEmitters.emit("forceDelete", this);
-        } else {
-            eventEmitters.emit("delete", this);
-        }
+        eventEmitters.emit("delete", this);
 
-        return this;
+        return [this, performanceResult];
     }
 
     private _getChanges(): { [key: string]: string } {

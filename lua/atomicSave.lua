@@ -7,7 +7,6 @@ local indexKeys = cjson.decode(ARGV[6])
 local uniqueKeys = cjson.decode(ARGV[7])
 local changes = cjson.decode(ARGV[8])
 local increments = cjson.decode(ARGV[9])
-local isRestore = ARGV[10]
 local result = {entityId = entityId }
 
 -- verify schemas
@@ -27,106 +26,62 @@ if #uniqueKeys > 0 then
             local newValue = changes[uniqueKey]
             local existEntityId = redis.call("HGET", getUniqueStorageKey(tableName, uniqueKey), newValue)
             if existEntityId ~= false then
-                local message = "Unique key (" .. uniqueKey .. ") with value (" .. newValue .. ") already exist on entity id (" .. existEntityId .. "). Current entity id (" .. entityId .. ")"
+                local message = "Unique key \"" .. uniqueKey .. "\" with value \"" .. newValue .. "\" already exist on entity id \"" .. existEntityId .. "\""
                 return error(message)
             end
         end
     end
 end
 
-if isRestore == "true" then
-    -- check entity exist or not based on isNew
-    local deletedAt = redis.call("HGET", currEntityStorageKey, "deletedAt")
-    if deletedAt == false or deletedAt == "NaN" then
-        return error("Entity not exist or entity not deleted. Entity Id: " .. entityId)
-    end
+if isNew == "true" then
+    -- generate auto increment entityId for new model
+    if isnotempty(autoIncrementKey) then
+        local hash = tableName
+        local autoIncrementStorageKey = getAutoIncrementStorageKey()
+        local autoIncrementValue = redis.call("HGET", autoIncrementStorageKey, hash)
 
-    -- check all unique keys
-    if #uniqueKeys > 0 then
-        for i, uniqueKey in pairs(uniqueKeys) do
-            if not table.hasKey(changes, uniqueKey) then
-                local value = redis.call("HGET", currEntityStorageKey, uniqueKey)
-                if value ~= false then
-                    local existEntityId = redis.call("HGET", getUniqueStorageKey(tableName, uniqueKey), value)
-                    if existEntityId ~= false then
-                        local message = "Unique key (" .. uniqueKey .. ") with value (" .. value .. ") already exist on entity id (" .. existEntityId .. "). Current entity id (" .. entityId .. ")"
-                        return error(message)
-                    end
-                end
+        -- set a default to 0 for auto increment
+        if autoIncrementValue == false then
+            autoIncrementValue = "0"
+            redis.call("HSET", autoIncrementStorageKey, hash, autoIncrementValue)
+        end
+
+        if isempty(entityId) or tonumber(entityId) == 0 then
+            autoIncrementValue = redis.call("HINCRBY", autoIncrementStorageKey, hash, 1)
+            entityId = tostring(autoIncrementValue)
+            changes[autoIncrementKey] = entityId
+            result["entityId"] = entityId
+            result["autoIncrementKeyValue"] = autoIncrementValue
+
+            -- update the storage key
+            currEntityStorageKey = getEntityStorageKey(tableName, entityId)
+
+        elseif not isnumeric(entityId) then
+            -- entityId is not empty, but also not a number
+            return error("Entity Id \"" .. entityId .. "\" is not a number for auto increment column")
+        else
+            -- if entity id is larger than the increment Key, we have to update it
+            if tonumber(entityId) > tonumber(autoIncrementValue) then
+                redis.call("HSET", autoIncrementStorageKey, hash, entityId)
             end
         end
     end
 
-    -- restore all unique
-    if #uniqueKeys > 0 then
-        for i, uniqueKey in pairs(uniqueKeys) do
-            local value = redis.call("HGET", currEntityStorageKey, uniqueKey)
-            if value ~= false then
-                redis.call("HSET", getUniqueStorageKey(tableName, uniqueKey), value, entityId)
-            end
-        end
+    -- make sure we have entity id for new entity
+    if isempty(entityId) then
+        return error("Entity Id is empty")
     end
 
-    -- restore all index
-    if #indexKeys > 0 then
-        for i, indexKey in pairs(indexKeys) do
-            local value = redis.call("HGET", currEntityStorageKey, indexKey)
-            if isnumeric(value) then
-                redis.call("ZADD", getIndexStorageKey(tableName, indexKey), value, entityId)
-            end
-        end
+    -- check if there is existing model
+    local exist = redis.call("EXISTS", currEntityStorageKey)
+    if exist == 1 then
+        return error("Duplicated enity. Entity Id \"" .. entityId .. "\"")
     end
 else
-    if isNew == "true" then
-        -- generate auto increment entityId for new model
-        if isnotempty(autoIncrementKey) then
-            local hash = tableName
-            local autoIncrementStorageKey = getAutoIncrementStorageKey()
-            local autoIncrementValue = redis.call("HGET", autoIncrementStorageKey, hash)
-
-            -- set a default to 0 for auto increment
-            if autoIncrementValue == false then
-                autoIncrementValue = "0"
-                redis.call("HSET", autoIncrementStorageKey, hash, autoIncrementValue)
-            end
-
-            if isempty(entityId) or tonumber(entityId) == 0 then
-                autoIncrementValue = redis.call("HINCRBY", autoIncrementStorageKey, hash, 1)
-                entityId = tostring(autoIncrementValue)
-                changes[autoIncrementKey] = entityId
-                result["entityId"] = entityId
-                result["autoIncrementKeyValue"] = autoIncrementValue
-
-                -- update the storage key
-                currEntityStorageKey = getEntityStorageKey(tableName, entityId)
-
-            elseif not isnumeric(entityId) then
-                -- entityId is not empty, but also not a number
-                return error("Entity Id: " .. entityId .. " is not a number for auto increment column")
-            else
-                -- if entity id is larger than the increment Key, we have to update it
-                if tonumber(entityId) > tonumber(autoIncrementValue) then
-                    redis.call("HSET", autoIncrementStorageKey, hash, entityId)
-                end
-            end
-        end
-
-        -- make sure we have entity id for new entity
-        if isempty(entityId) then
-            return error("Entity Id is empty")
-        end
-
-        -- check if there is existing model
-        local exist = redis.call("EXISTS", currEntityStorageKey)
-        if exist == 1 then
-            return error("Duplicated enity. Entity Id: " .. entityId)
-        end
-    else
-        -- make sure model exist and not deleted
-        local deletedAt = redis.call("HGET", currEntityStorageKey, "deletedAt")
-        if deletedAt == false or deletedAt ~= "NaN" then
-            return error("Entity not exist or deleted. Entity Id: " .. entityId)
-        end
+    -- make sure model exist and not deleted
+    local existId = redis.call("HGET", currEntityStorageKey, "id")
+    if existId == false then
+        return error("Entity not exist. Entity Id \"" .. entityId .. "\"")
     end
 end
 

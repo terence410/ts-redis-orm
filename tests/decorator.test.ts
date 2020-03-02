@@ -4,54 +4,54 @@ import {BaseEntity, Column, Entity, RedisOrmSchemaError} from "../src/";
 describe("Decorator Test", () => {
     it("test 1", async () => {
         try {
-            @Entity({table: "testing_decorator", connection: "default"})
+            @Entity({table: "TestingDecorator", connection: "default"})
             class TestingDecorator1 extends BaseEntity {
-                @Column({autoIncrement: true})
-                public id: number = 0;
+                @Column()
+                public value: number = 0;
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "(TestingDecorator1) AutoIncrement needs pair up with primary key");
+            assert.equal(err.message, "(TestingDecorator1) No primary keys exist for this entity");
         }
     });
 
     it("test 2", async () => {
         try {
-            @Entity({table: "testing_decorator", connection: "default"})
+            @Entity({table: "TestingDecorator", connection: "default"})
             class TestingDecorator2 extends BaseEntity {
-                @Column({primary: true, autoIncrement: true})
-                public id1: number = 0;
+                @Column()
+                public id: number = 0;
 
-                @Column({primary: true, autoIncrement: true})
+                @Column({autoIncrement: true})
                 public id2: number = 0;
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "(TestingDecorator2) AutoIncrement already exist for column: id1");
+            assert.equal(err.message, "(TestingDecorator2) AutoIncrement can be applied on primary key only");
         }
     });
 
     it("test 3", async () => {
         try {
-            @Entity({table: "testing_decorator", connection: "default"})
+            @Entity({table: "TestingDecorator", connection: "default"})
             class TestingDecorator3 extends BaseEntity {
-                @Column({primary: true, autoIncrement: true})
-                public id1: number = 0;
+                @Column({unique: true})
+                public id: number = 0;
 
-                @Column({primary: true})
+                @Column()
                 public string: string = "";
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "(TestingDecorator3) AutoIncrement can only work with one primary key");
+            assert.equal(err.message, "(TestingDecorator3) Primary key should not be set to unique");
         }
     });
 
     it("test 4", async () => {
         try {
-            @Entity({table: "testing_decorator", connection: "default"})
+            @Entity({table: "TestingDecorator", connection: "default"})
             class TestingDecorator4 extends BaseEntity {
-                @Column({primary: true})
+                @Column()
                 public id: Date = new Date();
             }
             assert.isTrue(false);
@@ -62,9 +62,9 @@ describe("Decorator Test", () => {
 
     it("test 5", async () => {
         try {
-            @Entity({table: "testing_decorator", connection: "default"})
+            @Entity({table: "TestingDecorator", connection: "default"})
             class TestingDecorator5 extends BaseEntity {
-                @Column({primary: true})
+                @Column()
                 public id: string = "";
 
                 @Column({index: true})
@@ -78,9 +78,9 @@ describe("Decorator Test", () => {
 
     it("test 6", async () => {
         try {
-            @Entity({table: "testing_decorator", connection: "default"})
+            @Entity({table: "TestingDecorator", connection: "default"})
             class TestingDecorator6 extends BaseEntity {
-                @Column({primary: true})
+                @Column()
                 public id: string = "";
 
                 @Column({unique: true})
@@ -94,14 +94,30 @@ describe("Decorator Test", () => {
 
     it("test 7", async () => {
         try {
-            @Entity({table: "testing_decorator", connection: "default"})
+            @Entity({table: "TestingDecorator", connection: "default"})
             class TestingDecorator7 extends BaseEntity {
+                @Column()
+                public id: string = "";
+
+                @Column({index: true})
+                public createdAt: Date = new Date();
+            }
+            assert.isTrue(false);
+        } catch (err) {
+            assert.equal(err.message, "(TestingDecorator7) createdAt is a preserved column name");
+        }
+    });
+
+    it("test 8", async () => {
+        try {
+            @Entity({table: "Testing:Decorator", connection: "default"})
+            class TestingDecorator8 extends BaseEntity {
                 @Column()
                 public id: string = "";
             }
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, "(TestingDecorator7) No primary keys exist for this entity");
+            assert.equal(err.message, "(TestingDecorator8) table and tablePrefix must not contains \":\"");
         }
     });
 });

@@ -2,6 +2,7 @@ local tableName = ARGV[1]
 local indexKeys = {}
 local uniqueKeys = {}
 local batch = 10000
+local total = 0
 
 -- find remote schemas and assign index and unique keys
 local currRemoteSchemas = getRemoteSchemas(tableName)
@@ -21,23 +22,10 @@ local createdAtStorageKey = getIndexStorageKey(tableName, "createdAt")
 while count > 0 do
     local entityIds = redis.call("ZRANGE", createdAtStorageKey, 0, batch)
     count = #entityIds
+    total = total + count;
 
     for i, entityId in pairs(entityIds) do
         redis.call("ZREM", getIndexStorageKey(tableName, "createdAt"), entityId)
-        local currEntityStorageKey = getEntityStorageKey(tableName, entityId)
-        redis.call("DEL", currEntityStorageKey)
-    end
-end
-
--- remove all entities found in deletedAt index
-count = 1
-local deletedAtStorageKey = getIndexStorageKey(tableName, "deletedAt")
-while count > 0 do
-    local entityIds = redis.call("ZRANGE", deletedAtStorageKey, 0, batch)
-    count = #entityIds
-
-    for i, entityId in pairs(entityIds) do
-        redis.call("ZREM", getIndexStorageKey(tableName, "deletedAt"), entityId)
         local currEntityStorageKey = getEntityStorageKey(tableName, entityId)
         redis.call("DEL", currEntityStorageKey)
     end
@@ -62,3 +50,6 @@ redis.call("HDEL", getAutoIncrementStorageKey(), tableName);
 
 -- remove meta
 redis.call("HDEL", getSchemasStorageKey(), tableName);
+
+local result = { total = total }
+return cjson.encode(result)

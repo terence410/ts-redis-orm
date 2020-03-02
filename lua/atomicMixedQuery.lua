@@ -1,4 +1,4 @@
-local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupByColumn, groupByDateFormat)
+local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupByColumn)
   local result = {}
   local total = {}
   
@@ -22,8 +22,6 @@ local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupBy
       
       if groupByValue == false then 
         groupByValue = ""
-      elseif groupByDateFormat ~= "" then
-        groupByValue = dateFormat(groupByValue, groupByDateFormat)
       end
     end
     
@@ -169,14 +167,13 @@ local tableName = ARGV[5]
 local aggregate = ARGV[6]
 local aggregateColumn = ARGV[7]
 local groupByColumn = ARGV[8]
-local groupByDateFormat = ARGV[9]
-local finalSortByColumn = ARGV[10]
-local finalSortByOrder = ARGV[11]
+local finalSortByColumn = ARGV[9]
+local finalSortByOrder = ARGV[10]
 
 -- find the ids of the intersection of the indexes
 local indexArr = {}
 local indexTbls = {}
-local index = 12
+local index = 11
 
 -- we only able to do sorting for the first where cause
 local firstTable = true
@@ -238,7 +235,7 @@ if isnotempty(aggregate) then
   if aggregate == "count" and isempty(groupByColumn) then
     result["*"] = #ids
   else
-    result = aggregateData(ids, tableName, aggregate, aggregateColumn, groupByColumn, groupByDateFormat)
+    result = aggregateData(ids, tableName, aggregate, aggregateColumn, groupByColumn)
   end
   return cjson.encode(result)
 

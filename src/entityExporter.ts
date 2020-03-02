@@ -97,14 +97,6 @@ class EntityExporter {
                         entity.setTable(table);
                         entity.setValues(values);
                         await entity.save();
-
-                        if (values.deletedAt) {
-                            const deletedAt = new Date(values.deletedAt);
-                            if (!isNaN(Number(deletedAt))) {
-                                entity.deletedAt = deletedAt;
-                                await entity.delete();
-                            }
-                        }
                     } catch (err) {
                         err.message = `data: ${JSON.stringify(values)}\r\n` + err.message;
                         throw err;
@@ -131,12 +123,12 @@ class EntityExporter {
                         const clientSchemas = redisOrm.getSchemasJson(entityType);
                         if (meta.class !== className) {
                             const err = new Error();
-                            err.message = `Class name: ${className} does not match with the import file: ${meta.class}`;
+                            err.message = `Class name "${className}" does not match with the import file "${meta.class}"`;
                             currentError = err;
                             checkError();
                         } else if (meta.schemas !== clientSchemas) {
                             const err = new Error();
-                            err.message = `Current Schemas: ${clientSchemas} does not match with the import file: ${meta.schemas}`;
+                            err.message = `Current Schemas "${clientSchemas}" does not match with the import file "${meta.schemas}"`;
                             currentError = err;
                             checkError();
                         }

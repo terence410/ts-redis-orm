@@ -10,9 +10,9 @@ type IObject = undefined | {
     name: string;
 };
 
-@Entity({connection: "default", table: "testing_general"})
+@Entity({connection: "default", table: "TestingGeneral"})
 class TestingGeneral extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({autoIncrement: true})
     public id: number = 0;
 
     @Column()
@@ -49,16 +49,13 @@ describe("General Test: Internal", () => {
     });
 
     it("check count", async () => {
-        let total = await TestingGeneral.count();
-        assert.equal(total, 0);
-
-        total = await TestingGeneral.query().onlyDeleted().count();
+        const [total, perforamnceResult] = await TestingGeneral.count();
         assert.equal(total, 0);
     });
 
     it("meta", async () => {
-        assert.equal(redisOrm.getDefaultTable(TestingGeneral), "testing_general");
-        assert.deepEqual(redisOrm.getPrimaryKeys(TestingGeneral), ["id"]);
+        assert.equal(redisOrm.getDefaultTable(TestingGeneral), "TestingGeneral");
+        assert.deepEqual(redisOrm.getPrimaryKey(TestingGeneral), "id");
         assert.equal(redisOrm.getAutoIncrementKey(TestingGeneral), "id");
         assert.includeMembers(redisOrm.getIndexKeys(TestingGeneral), ["uniqueNumber", "date", "boolean"]);
         assert.deepEqual(redisOrm.getUniqueKeys(TestingGeneral), ["uniqueNumber"]);
@@ -75,8 +72,6 @@ describe("General Test: Create Entity", () => {
         const entity = new TestingGeneral();
         assert.isTrue(entity.isNew);
         assert.isFalse(isNaN(entity.createdAt.getTime()));
-        assert.isFalse(isNaN(entity.updatedAt.getTime()));
-        assert.isTrue(isNaN(entity.deletedAt.getTime()));
     });
 
     it("check default value", async () => {
@@ -109,7 +104,7 @@ describe("General Test: Create Entity", () => {
         assert.isFalse(entity.isNew);
         assert.equal(entity.getEntityId(), id.toString());
 
-        const newEntity = await TestingGeneral.find(id);
+        const [newEntity] = await TestingGeneral.find(id);
         assert.isDefined(newEntity);
         if (newEntity) {
             assert.deepEqual(entity.getValues(), newEntity.getValues());
@@ -126,78 +121,11 @@ describe("General Test: Create Entity", () => {
         const entity = TestingGeneral.create({id, uniqueNumber: id});
         await entity.save();
 
-        const newEntity = await TestingGeneral.query().findUnique("uniqueNumber", id);
+        const [newEntity] = await TestingGeneral.query().findUnique("uniqueNumber", id);
         assert.isDefined(newEntity);
         if (newEntity) {
             assert.deepEqual(entity.getValues(), newEntity.getValues());
         }
-    });
-
-    it("create entity: delete", async () => {
-        const id = 3;
-        const entity = TestingGeneral.create({id, uniqueNumber: id});
-        await entity.save();
-
-        // delete entity
-        let newEntity = await TestingGeneral.find(id);
-        assert.isDefined(newEntity);
-        if (newEntity) {
-            await newEntity.delete();
-            assert.isFalse(isNaN(newEntity.deletedAt.getTime()));
-            assert.isTrue(newEntity.isDeleted);
-
-            // we cannot delete an deleted entity
-            try {
-                await newEntity.delete();
-                assert.isTrue(false);
-            } catch (err) {
-                // console.log(err);
-            }
-
-            // we cannot save an deleted entity
-            try {
-                await newEntity.save();
-                assert.isTrue(false);
-            } catch (err) {
-                // console.log(err);
-            }
-        }
-
-        let deletedEntity = await TestingGeneral.find(id);
-        assert.isUndefined(deletedEntity);
-
-        // we cannot found by unique key anymore
-        const foundDeletedEntity = await TestingGeneral.query().onlyDeleted().findUnique("uniqueNumber", id);
-        assert.isUndefined(foundDeletedEntity);
-
-        // restore entity
-        deletedEntity = await TestingGeneral.query().onlyDeleted().find(id);
-        assert.isDefined(deletedEntity);
-        if (deletedEntity) {
-            await deletedEntity.restore();
-            assert.isFalse(deletedEntity.isDeleted);
-        }
-
-        // find again by id
-        newEntity = await TestingGeneral.find(id);
-        assert.isDefined(newEntity);
-
-        // find again by unique
-        newEntity = await TestingGeneral.query().findUnique("uniqueNumber", id);
-        assert.isDefined(newEntity);
-
-        // force delete
-        if (newEntity) {
-            await newEntity.forceDelete();
-            assert.isTrue(newEntity.isDeleted);
-        }
-
-        // not exist anymore
-        deletedEntity = await TestingGeneral.find(id);
-        assert.isUndefined(deletedEntity);
-
-        deletedEntity = await TestingGeneral.query().onlyDeleted().findUnique("uniqueNumber", id);
-        assert.isUndefined(deletedEntity);
     });
 
     it("create entity: clone", async () => {
@@ -232,41 +160,19 @@ describe("General Test: Create Entity", () => {
         assert.equal(newEntity.id, newId);
     });
 
-    it("create entity: custom createdAt, updatedAt", async () => {
+    it("create entity: custom createdAt", async () => {
         const id = 6;
         const createdAt = new Date(0);
-        const updatedAt = new Date(1);
         const entity = TestingGeneral.create({id, uniqueNumber: id});
-        entity.setValues({createdAt, updatedAt});
+        entity.setValues({createdAt});
         await entity.save();
 
         assert.equal(entity.createdAt.getTime(), createdAt.getTime());
-        assert.equal(entity.updatedAt.getTime(), updatedAt.getTime());
 
-        const newEntity = await TestingGeneral.find(id);
+        const [newEntity] = await TestingGeneral.find(id);
         assert.isDefined(newEntity);
         if (newEntity) {
             assert.equal(entity.createdAt.getTime(), newEntity.createdAt.getTime());
-            assert.equal(entity.updatedAt.getTime(), newEntity.updatedAt.getTime());
-        }
-    });
-
-    it("create entity: custom deletedAt", async () => {
-        const id = 7;
-        const deletedAt = new Date(2);
-        const entity = TestingGeneral.create({id, uniqueNumber: id});
-        await entity.save();
-        entity.setValues({deletedAt});
-        await entity.delete();
-
-        // use customized deleted time
-        assert.equal(entity.deletedAt.getTime(), deletedAt.getTime());
-
-        // validate the date again
-        const newEntity = await TestingGeneral.query().onlyDeleted().find(id);
-        assert.isDefined(newEntity);
-        if (newEntity) {
-            assert.equal(entity.deletedAt.getTime(), newEntity.deletedAt.getTime());
         }
     });
 
@@ -278,26 +184,26 @@ describe("General Test: Create Entity", () => {
         await entity.save();
 
         // found the entity with "="
-        let newEntity = await TestingGeneral.query()
+        let [newEntity] = await TestingGeneral.query()
             .where("string1", "=", string1)
             .where("string2", "=", string2)
-            .first();
+            .runOnce();
         assert.isDefined(newEntity);
         if (newEntity) {
             assert.equal(entity.id, newEntity.id);
         }
         // found the entity with "=", but not matching all condition
-        newEntity = await TestingGeneral.query()
+        [newEntity] = await TestingGeneral.query()
             .where("string1", "=", string1)
             .where("string2", "!=", string2)
-            .first();
+            .runOnce();
         assert.isUndefined(newEntity);
 
         // found the entity with "like
-        newEntity = await TestingGeneral.query()
+        [newEntity] = await TestingGeneral.query()
             .where("string1", "like", string1.substr(0, 3))
             .where("string2", "like", string2.substr(0, 3))
-            .first();
+            .runOnce();
         assert.isDefined(newEntity);
         if (newEntity) {
             assert.equal(entity.id, newEntity.id);
@@ -311,39 +217,39 @@ describe("General Test: Create Entity", () => {
             await entity.save();
         }
 
-        let entities = await TestingGeneral.query()
+        let [entities] = await TestingGeneral.query()
             .findMany([...ids, ids[ids.length - 1] + 1]);
         assert.deepEqual(entities.map(x => x.id), ids);
 
-        entities = await TestingGeneral.query()
+        [entities] = await TestingGeneral.query()
             .findUniqueMany("uniqueNumber", [...ids, ids[ids.length - 1] + 1]);
         assert.deepEqual(entities.map(x => x.id), ids);
 
-        entities = await TestingGeneral
+        [entities] = await TestingGeneral
             .query()
             .where("number", ">=", ids[0])
             .where("number", "<=", ids[ids.length - 1])
-            .get();
+            .run();
         assert.deepEqual(entities.map(x => x.id), ids);
 
         // sort
-        entities = await TestingGeneral
+        [entities] = await TestingGeneral
             .query()
             .where("number", ">=", ids[0])
             .sortBy("number", "asc")
             .offset(1)
             .limit(2)
-            .get();
+            .run();
         assert.deepEqual(entities.map(x => x.id), ids.slice(1, 3));
 
         // sort with last one
-        entities = await TestingGeneral
+        [entities] = await TestingGeneral
             .query()
             .where("number", ">=", ids[0])
             .sortBy("number", "desc")
             .offset(1)
             .limit(2)
-            .get();
+            .run();
         assert.deepEqual(entities.map(x => x.id), ids.reverse().slice(1, 3));
     });
 
@@ -352,13 +258,12 @@ describe("General Test: Create Entity", () => {
         const entity = TestingGeneral.create({id, uniqueNumber: id, number: id});
         await entity.save();
 
-        const newEntity = await TestingGeneral.find(id);
+        const [newEntity] = await TestingGeneral.find(id);
         assert.isDefined(newEntity);
 
         // delete entity
         if (newEntity) {
             await newEntity.delete();
-            assert.isTrue(newEntity.isDeleted);
         }
 
         // save an deleted entity
@@ -367,7 +272,7 @@ describe("General Test: Create Entity", () => {
             await entity.save();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `(${TestingGeneral.name}, testing_general) Entity not exist or deleted. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}, TestingGeneral) Entity not exist. Entity Id "${entity.getEntityId()}"`);
         }
 
         // delete an deleted entity
@@ -375,20 +280,7 @@ describe("General Test: Create Entity", () => {
             await entity.delete();
             assert.isTrue(false);
         } catch (err) {
-            assert.equal(err.message, `(${TestingGeneral.name}, testing_general) Entity already deleted. Entity Id: ${entity.getEntityId()}`);
-        }
-
-        // force delete the entity
-        if (newEntity) {
-            await newEntity.forceDelete();
-        }
-
-        // delete an force deleted entity
-        try {
-            await entity.delete();
-            assert.isTrue(false);
-        } catch (err) {
-            assert.equal(err.message, `(${TestingGeneral.name}, testing_general) Entity not exist. Entity Id: ${entity.getEntityId()}`);
+            assert.equal(err.message, `(${TestingGeneral.name}, TestingGeneral) Entity not exist. Entity Id "${entity.getEntityId()}"`);
         }
     });
 
@@ -411,7 +303,7 @@ describe("General Test: Create Entity", () => {
         }
         await Promise.all(promises);
 
-        const total = await TestingGeneral
+        const [total] = await TestingGeneral
             .query()
             .where("number", "=", indexNumber)
             .count();
@@ -420,7 +312,7 @@ describe("General Test: Create Entity", () => {
         const entities = await TestingGeneral
             .query()
             .where("number", "=", indexNumber)
-            .get();
+            .run();
     });
 
     it("create entity: increment errors", async () => {
@@ -432,7 +324,7 @@ describe("General Test: Create Entity", () => {
             entity.increment("number", 10);
             assert.isTrue(false);
         } catch (err) {
-            //
+            assert.match(err.message, /You cannot increment a new entity/);
         }
 
         // save it
@@ -443,7 +335,7 @@ describe("General Test: Create Entity", () => {
             entity.increment("id", 10);
             assert.isTrue(false);
         } catch (err) {
-            //
+            assert.match(err.message, /You cannot increment primary key/);
         }
 
         // unique column
@@ -451,7 +343,7 @@ describe("General Test: Create Entity", () => {
             entity.increment("uniqueNumber", 10);
             assert.isTrue(false);
         } catch (err) {
-            //
+            assert.match(err.message, /You cannot increment unique key/);
         }
 
         // not integer
@@ -459,7 +351,7 @@ describe("General Test: Create Entity", () => {
             entity.increment("number", 10.1);
             assert.isTrue(false);
         } catch (err) {
-            //
+            assert.match(err.message, /Increment value need to be an integer/);
         }
     });
 
@@ -474,7 +366,7 @@ describe("General Test: Create Entity", () => {
         await entity.save();
 
         // check index
-        let total = await TestingGeneral.query().where(column, "=", entity.number).count();
+        let [total] = await TestingGeneral.query().where(column, "=", entity.number).count();
         assert.equal(total, 1);
 
         entity.increment(column, updateValue);
@@ -482,7 +374,7 @@ describe("General Test: Create Entity", () => {
         assert.equal(entity.number, initialValue + updateValue);
         //
         // index is updated
-        total = await TestingGeneral.query().where(column, "=", entity.number).count();
+        [total] = await TestingGeneral.query().where(column, "=", entity.number).count();
         assert.equal(total, 1);
 
         // increment again and also do a set
@@ -491,7 +383,7 @@ describe("General Test: Create Entity", () => {
         await entity.save();
         assert.equal(entity.number, initialValue + updateValue * 2);
 
-        const newEntity = await TestingGeneral.find(id);
+        const [newEntity] = await TestingGeneral.find(id);
         assert.isDefined(newEntity);
         if (newEntity) {
             assert.deepEqual(entity.number, newEntity.number);
@@ -500,15 +392,13 @@ describe("General Test: Create Entity", () => {
 });
 
 describe("Events", () => {
-    it("create, update, delete, restore, forceDelete", async () => {
+    it("create, update, delete", async () => {
         const id = 10001;
         const entity = TestingGeneral.create({id, uniqueNumber: id});
         const events = TestingGeneral.getEvents();
         let createdEntity: any = null;
         let updatedEntity: any = null;
-        let deletedEntity: any = null;
         let forcedDeletedEntity: any = null;
-        let restoredEntity: any = null;
 
         // create
         const promise1 = new Promise(resolve => {
@@ -535,41 +425,16 @@ describe("Events", () => {
         assert.isNotNull(updatedEntity);
         assert.equal(entity.string2, (updatedEntity as TestingGeneral).string2);
 
-        // delete
-        const promise3 = new Promise(resolve => {
-            events.once("delete", (thisEntity) => {
-                deletedEntity = thisEntity;
-                resolve();
-            });
-        });
-        await entity.delete();
-        await promise3;
-        assert.isNotNull(deletedEntity);
-        assert.equal(entity.isDeleted, (deletedEntity as TestingGeneral).isDeleted);
-
-        // restore
-        const promise4 = new Promise(resolve => {
-            events.once("restore", (thisEntity) => {
-                restoredEntity = thisEntity;
-                resolve();
-            });
-        });
-        await entity.restore();
-        await promise4;
-        assert.isDefined(restoredEntity);
-        assert.equal(entity.isDeleted, (restoredEntity as TestingGeneral).isDeleted);
-
         // forceDelete
         const promise5 = new Promise(resolve => {
-            events.once("forceDelete", (thisEntity) => {
+            events.once("delete", (thisEntity) => {
                 forcedDeletedEntity = thisEntity;
                 resolve();
             });
         });
-        await entity.forceDelete();
+        await entity.delete();
         await promise5;
         assert.isNotNull(forcedDeletedEntity);
-        assert.equal(entity.isDeleted, (forcedDeletedEntity as TestingGeneral).isDeleted);
     });
 });
 
@@ -582,7 +447,7 @@ describe("Service Instance", () => {
 
     it("get schemas list", async () => {
         const schemasList = await redisOrm.getRemoteSchemasList();
-        assert.containsAllKeys(schemasList, ["testing_general"]);
+        assert.containsAllKeys(schemasList, ["TestingGeneral"]);
     });
 });
 

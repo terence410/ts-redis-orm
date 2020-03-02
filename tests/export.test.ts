@@ -6,9 +6,9 @@ type IObject = undefined | {
     createdAt: Date;
 };
 
-@Entity({connection: "default", table: "testing_export"})
+@Entity({connection: "default", table: "TestingExport"})
 class TestingExport extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({ autoIncrement: true, index: true})
     public id: number = 0;
 
     @Column({unique: true})
@@ -33,9 +33,9 @@ class TestingExport extends BaseEntity {
     public object: IObject;
 }
 
-@Entity({connection: "default", table: "testing_new_export"})
+@Entity({connection: "default", table: "TestingNewExport"})
 class TestingNewExport extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({ autoIncrement: true})
     public id: number = 0;
 }
 
@@ -43,7 +43,6 @@ describe("Export Test", () => {
     const totalEntity = 100;
     const exportFile = "./tests/exports/exportTest.txt";
     let allExist: TestingExport[] = [];
-    let allDeleted: TestingExport[] = [];
 
     it("truncate", async () => {
         await TestingExport.truncate("TestingExport");
@@ -67,7 +66,7 @@ describe("Export Test", () => {
         }
         await Promise.all(promises);
 
-        const all = await TestingExport.all();
+        const [all] = await TestingExport.query().sortBy("id", "asc").run();
         for (let i = 0; i < all.length; i++) {
             if (i % 2 === 0) {
                 const entity = all[i];
@@ -75,29 +74,19 @@ describe("Export Test", () => {
             }
         }
 
-        allExist = await TestingExport.all();
-        allDeleted = await TestingExport.query().onlyDeleted().get();
+        [allExist] = await TestingExport.all();
     });
 
     it("export and import from file", async () => {
-        const entity = await TestingExport.query().limit(1).first();
+        const [entity] = await TestingExport.query().limit(1).runOnce();
         await TestingExport.export(exportFile);
         await TestingExport.truncate("TestingExport");
         await TestingExport.import(exportFile);
-        const foundEntity = await TestingExport.query().limit(1).first();
-
-        const currentAllExist = await TestingExport.all();
-        const currentAllDeleted = await TestingExport.query().onlyDeleted().get();
-
-        assert.equal(allExist.length, currentAllExist.length);
-        assert.equal(allDeleted.length, currentAllDeleted.length);
+        const [foundEntity] = await TestingExport.query().limit(1).runOnce();
+        const [currentAllExist] = await TestingExport.all();
 
         for (let i = 0; i < allExist.length; i++) {
             assert.deepEqual(allExist[i].getValues(), currentAllExist[i].getValues());
-        }
-
-        for (let i = 0; i < allDeleted.length; i++) {
-            assert.deepEqual(allDeleted[i].getValues(), currentAllDeleted[i].getValues());
         }
 
         // validate the entity
@@ -125,12 +114,12 @@ describe("Export Test", () => {
             assert.isTrue(false);
         } catch (err) {
             assert.equal(err.message, 
-                "Class name: TestingNewExport does not match with the import file: TestingExport");
+                `Class name "TestingNewExport" does not match with the import file "TestingExport"`);
         }
         
         // by pass schemas eheck
         await TestingNewExport.import(exportFile, true);
-        const count = await TestingNewExport.count();
+        const [count] = await TestingNewExport.count();
         assert.equal(count, totalEntity / 2);
     });
 });

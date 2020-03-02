@@ -1,22 +1,38 @@
 import * as IORedis from "ioredis";
 import {BaseEntity} from "./BaseEntity";
 
+export type ConnectionConfig = {
+    host: string;
+    port: number;
+    connectTimeout: number;
+    db: number;
+    trackCommandStats: boolean;
+    showFriendlyErrorStack: boolean;
+    maxConnectRetry: number;
+    retryStrategy?: (times: number) => number;
+};
+
+export type IPerformanceResult = {
+    executionTime: number;
+    commandStats: any;
+    commandStatsUsed: any;
+};
+
 // decorator
 export type IEntityColumns = {[key: string]: IEntityColumn};
 export interface IEntityColumnBase {
-    primary: boolean;
     autoIncrement: boolean;
     index: boolean;
     unique: boolean;
 }
 export interface IEntityColumn extends IEntityColumnBase {
+    primary: boolean;
     type: any;
 }
 export interface IEntityBaseMeta {
     table: string;
     tablePrefix: string;
     connection: string;
-    indexUpdatedAt: boolean;
 }
 export interface IEntityMeta extends IEntityBaseMeta {
     redisMaster: IRedisContainer | null;
@@ -49,16 +65,15 @@ export type ISaveResult = {
 };
 
 // entity
-export type IArgvColumns<T> = Exclude<keyof T, keyof BaseEntity> | "createdAt" | "updatedAt" | "deletedAt";
+export type IArgvColumns<T> = Exclude<keyof T, keyof BaseEntity> | "createdAt";
 export type IArgvColumn<T extends typeof BaseEntity> = IArgvColumns<InstanceType<T>>;
-export type IArgvValues<T> = {[P in Exclude<keyof T, keyof BaseEntity>]?: T[P]} |
-    {createdAt: Date} | {updatedAt: Date} | {deletedAt: Date};
-export type IInstanceValues<T> = {[P in Exclude<keyof T, keyof BaseEntity>]: T[P]} &
-    {createdAt: Date, updatedAt: Date, deletedAt: Date};
-export type IIdObject<T> = IArgvValues<T> | number | string;
+export type IArgvValues<T> = {[P in Exclude<keyof T, keyof BaseEntity>]?: T[P]} | {createdAt: Date};
+export type IInstanceValues<T> = {[P in Exclude<keyof T, keyof BaseEntity>]: T[P]} & {createdAt: Date};
+// export type IIdObject<T> = IArgvValues<T> | number | string;
+export type IIdType = number | string;
 
 // event
-export type IEventsType = "create" | "update" | "delete" | "forceDelete" | "restore";
+export type IEventsType = "create" | "update" | "delete";
 export interface IEvents<T> {
     on(type: IEventsType, callback: (entity: T) => void): this;
     addListener(type: IEventsType, callback: (entity: T) => void): this;

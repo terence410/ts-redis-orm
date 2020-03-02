@@ -1,9 +1,9 @@
 import { assert, expect } from "chai";
 import {BaseEntity, Column, Entity, RedisOrmSchemaError} from "../src/";
 
-@Entity({table: "testing_schema", connection: "default", indexUpdatedAt: true})
+@Entity({table: "TestingSchema", connection: "default"})
 class TestingSchema1 extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({ autoIncrement: true})
     public id: number = 0;
 
     @Column()
@@ -22,9 +22,9 @@ class TestingSchema1 extends BaseEntity {
     public unique1: number = 0;
 }
 
-@Entity({table: "testing_schema", connection: "default", indexUpdatedAt: false})
+@Entity({table: "TestingSchema", connection: "default"})
 class TestingSchema2 extends BaseEntity {
-    @Column({primary: true, autoIncrement: false})
+    @Column({ autoIncrement: false})
     public id: number = 0;
 
     @Column()
@@ -46,10 +46,10 @@ class TestingSchema2 extends BaseEntity {
     public unique2: number = 0;
 }
 
-@Entity({table: "testing_schema", connection: "default", indexUpdatedAt: false})
+@Entity({table: "TestingSchema", connection: "default"})
 class TestingSchema3 extends BaseEntity {
-    @Column({primary: true})
-    public key: string = "";
+    @Column()
+    public id: string = "";
 }
 
 describe("Schema Test", () => {
@@ -61,7 +61,6 @@ describe("Schema Test", () => {
         "Incompatible type on column: type, current value: Date, remove value: String",
         "Incompatible unique on column: unique1, current value: false, remove value: true",
         "Column: unique2 does not exist in remote schemas",
-        "Incompatible index on column: updatedAt, current value: false, remove value: true",
         "Column: existNumber1 does not exist in current schemas",
     ];
 
@@ -113,7 +112,7 @@ describe("Schema Test", () => {
             await entity1.save();
             assert.isTrue(false);
         } catch (err) {
-            //
+            assert.match(err.message, /Mismatch with remote Schemas/);
         }
 
         // clear all data
@@ -140,30 +139,20 @@ describe("Schema Test", () => {
             });
             await entity.save();
         }
-    }).timeout(100 * 1000);
-
-    it("schema 3 resync db: error on invalid key", async () => {
-        try {
-            await TestingSchema3.resyncDb();
-            assert.isTrue(false);
-        } catch (err) {
-            assert.equal(err.message, "(TestingSchema3, testing_schema) Resync can only apply to same primary keys. The remote primary key: id is not the same or not exist in current schemas");
-        }
     });
 
-    // around 1 seconds for 100, 000 records
     it("schema 1 resync db: error on duplicated key", async () => {
         try {
             await TestingSchema1.resyncDb();
             assert.isTrue(false);
         } catch (err) {
-            //
+            assert.match(err.message, /Unique key "unique1" with value "0" already exist on entity id/);
         }
     });
 
     it("schema 1 resync db > schema 2 has error", async () => {
         // fix unique error
-        const duplicatedEntity = await TestingSchema2.find(-100);
+        const [duplicatedEntity] = await TestingSchema2.find(-100);
         assert.isDefined(duplicatedEntity);
         if (duplicatedEntity) {
             await duplicatedEntity.delete();
@@ -173,32 +162,12 @@ describe("Schema Test", () => {
         await TestingSchema1.resyncDb();
 
         // this will instead cause error
-        const entity2 = new TestingSchema2();
+        const entity2 = TestingSchema2.create({id: -100});
         try {
             await entity2.save();
             assert.isTrue(false);
         } catch (err) {
-            //
-        }
-    });
-
-    it("schema 1 resync db: restore deleted entity", async () => {
-        const duplicatedEntity = await TestingSchema1.query().onlyDeleted().find(-100);
-        assert.isDefined(duplicatedEntity);
-        if (duplicatedEntity) {
-            assert.isTrue(duplicatedEntity.isDeleted);
-            
-            // we cannot restore since key duplicated
-            try {
-                await duplicatedEntity.restore();
-                assert.isTrue(false);
-            } catch (err) {
-                assert.equal(err.message, `(${TestingSchema1.name}, testing_schema) Unique key (unique1) with value (0) already exist on entity id (1). Current entity id (${duplicatedEntity.id})`);
-            }
-
-            // update the value and restore again
-            duplicatedEntity.unique1 = -100;
-            await duplicatedEntity.restore();
+            assert.match(err.message, /Mismatch with remote Schemas/);
         }
     });
 });

@@ -1,13 +1,13 @@
 import { assert, expect } from "chai";
-import {BaseEntity, Column, Entity, RedisOrmOperationError, RedisOrmSchemaError} from "../src/";
+import {BaseEntity, Column, Entity,  RedisOrmSchemaError} from "../src/";
 
-@Entity({table: "testing_tables", tablePrefix: "prefix_"})
+@Entity({table: "TestingTables", tablePrefix: "Prefix"})
 class TestingTables extends BaseEntity {
-    @Column({primary: true})
-    public table: string = "";
+    @Column()
+    public id: number = 0;
 
-    @Column({primary: true})
-    public numberId: number = 0;
+    @Column()
+    public table: string = "";
 
     @Column({index: true})
     public index: number = 0;
@@ -16,13 +16,13 @@ class TestingTables extends BaseEntity {
     public value: number = 0;
 }
 
-@Entity({table: "testing_tables_invalid", tablePrefix: "prefix_"})
+@Entity({table: "TestingTablesInvalid", tablePrefix: "Prefix"})
 class TestingTablesInvalid extends BaseEntity {
-    @Column({primary: true})
-    public table: string = "";
+    @Column()
+    public id: number = 0;
 
-    @Column({primary: true})
-    public numberId: number = 0;
+    @Column()
+    public table: string = "";
 
     @Column()
     public myValue: number = 0;
@@ -50,8 +50,8 @@ describe("Tables Test", () => {
         for (let i = 0; i < table1Total; i++) {
             const entity = new TestingTables();
             entity.setTable(table1);
+            entity.id = i + 1;
             entity.table = table1;
-            entity.numberId = i + 1;
             entity.index = i;
             await entity.save();
         }
@@ -61,8 +61,8 @@ describe("Tables Test", () => {
         for (let i = 0; i < table2Total; i++) {
             const entity = new TestingTables();
             entity.setTable(table2);
+            entity.id = i + 1;
             entity.table = table2;
-            entity.numberId = i + 1;
             entity.index = i;
             await entity.save();
         }
@@ -70,26 +70,26 @@ describe("Tables Test", () => {
 
     it("query", async () => {
         const value = 1001;
-        const total1 = await TestingTables.query().setTable(table1).count();
-        const total2 = await TestingTables.query().setTable(table2).count();
-        const sum1 = await TestingTables.query().setTable(table1).sum("index");
-        const sum2 = await TestingTables.query().setTable(table2).sum("index");
+        const [total1] = await TestingTables.query().setTable(table1).count();
+        const [total2] = await TestingTables.query().setTable(table2).count();
+        const [sum1] = await TestingTables.query().setTable(table1).sum("index");
+        const [sum2] = await TestingTables.query().setTable(table2).sum("index");
 
         assert.equal(total1, table1Total);
         assert.equal(total2, table2Total);
         assert.notEqual(sum1, sum2);
 
         // normal query
-        const entity1 = await TestingTables
+        const [entity1] = await TestingTables
             .query()
             .setTable(table1)
             .where("index", "=", 0)
-            .first();
-        const entity2 = await TestingTables
+            .runOnce();
+        const [entity2] = await TestingTables
             .query()
             .setTable(table2)
             .where("index", "=", 0)
-            .first();
+            .runOnce();
         assert.isDefined(entity1);
         assert.isDefined(entity2);
 
@@ -108,58 +108,32 @@ describe("Tables Test", () => {
         }
 
         // onlyDeleted query
-        const entity1a = await TestingTables
+        const [entity1a] = await TestingTables
             .query()
             .setTable(table1)
-            .onlyDeleted()
             .where("value", "=", value)
-            .first();
-        const entity2a = await TestingTables
+            .runOnce();
+        const [entity2a] = await TestingTables
             .query()
             .setTable(table2)
-            .onlyDeleted()
             .where("value", "=", value)
-            .first();
-        assert.isDefined(entity1a);
-        assert.isDefined(entity2a);
-
-        if (entity1a && entity2a) {
-            assert.equal(entity1a.value, value);
-            assert.isTrue(entity1a.isDeleted);
-            await entity1a.restore();
-            
-            assert.equal(entity2a.value, value);
-            assert.isTrue(entity2a.isDeleted);
-            await entity2a.restore();
-        }
-
-        // multiple query
-        const entity1b = await TestingTables
-            .query()
-            .setTable(table1)
-            .where("index", "=", 0)
-            .where("value", "=", value)
-            .first();
-        const entity2b = await TestingTables
-            .query()
-            .setTable(table2)
-            .where("index", "=", 0)
-            .where("value", "=", value)
-            .first();
-        assert.isDefined(entity1b);
-        assert.isDefined(entity2b);
+            .runOnce();
+        assert.isUndefined(entity1a);
+        assert.isUndefined(entity2a);
     });
 
     it("import/export", async () => {
+        const [currentTable1Total] = await TestingTables.query().setTable(table1).count();
+
         await TestingTables.export(exportFile, table1);
         await TestingTables.truncate("TestingTables", table2);
-        const count2a = await TestingTables.query().setTable(table2).count();
+        const [count2a] = await TestingTables.query().setTable(table2).count();
         assert.equal(count2a, 0);
 
         await TestingTables.import(exportFile, false, table2);
-        const count1b = await TestingTables.query().setTable(table1).count();
-        const count2b = await TestingTables.query().setTable(table2).count();
-        assert.equal(count1b, table1Total);
+        const [count1b] = await TestingTables.query().setTable(table1).count();
+        const [count2b] = await TestingTables.query().setTable(table2).count();
+        assert.equal(count1b, currentTable1Total);
         assert.equal(count1b, count2b);
     });
 
@@ -177,8 +151,8 @@ describe("Tables Test", () => {
 
         // ok
         const entity1 = new TestingTablesInvalid();
+        entity1.id = 1001;
         entity1.table = "table";
-        entity1.numberId = 1001;
         entity1.myValue = 1001;
         await entity1.save();
 
@@ -186,8 +160,8 @@ describe("Tables Test", () => {
         try {
             const entity2 = new TestingTablesInvalid();
             entity2.setTable(table1);
+            entity2.id = 1002;
             entity2.table = table1;
-            entity2.numberId = 1002;
             entity2.myValue = 1002;
             await entity2.save();
             assert.isTrue(false);
@@ -199,13 +173,13 @@ describe("Tables Test", () => {
         await TestingTablesInvalid.resyncDb(table1);
         const entity3 = new TestingTablesInvalid();
         entity3.setTable(table1);
+        entity3.id = 1003;
         entity3.table = table1;
-        entity3.numberId = 1003;
         entity3.myValue = 1003;
         await entity3.save();
 
         // query form different class
-        const entity3a = await TestingTablesInvalid.query().setTable(table1).find({table: table1, numberId: 1003});
+        const [entity3a] = await TestingTablesInvalid.query().setTable(table1).find(1003);
         assert.isDefined(entity3a);
         if (entity3a) {
             assert.equal(entity3a.getTable(), table1);
@@ -214,7 +188,7 @@ describe("Tables Test", () => {
         }
 
         // invalid schemas
-        const entity3b = await TestingTables.query().setTable(table1).find({table: table1, numberId: 1003});
+        const [entity3b] = await TestingTables.query().setTable(table1).find(1003);
         assert.isDefined(entity3b);
         if (entity3b) {
             try {
@@ -226,8 +200,6 @@ describe("Tables Test", () => {
             }
         }
     });
-
-
 });
 
 describe("Clean up", () => {

@@ -7,9 +7,9 @@ type IObject = {
     number1?: number,
 } | undefined;
 
-@Entity({connection: "default", table: "testing_speed"})
+@Entity({connection: "default", table: "TestingSpeed"})
 class TestingSpeed extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({autoIncrement: true})
     public id: number = 0;
 
     @Column()
@@ -93,7 +93,7 @@ describe("Speed Test", () => {
             await Promise.all(promises);
         }
 
-        const total = await TestingSpeed.count();
+        const [total] = await TestingSpeed.count();
         assert.equal(total, batch * iterate);
     }).timeout(1000 * 100);
 
@@ -104,30 +104,30 @@ describe("Speed Test", () => {
 
     it(`query: find`, async () => {
         const limit = 100;
-        const entities = await TestingSpeed.query().limit(limit).get();
+        const [entities] = await TestingSpeed.query().limit(limit).run();
         assert.equal(entities.length, limit);
 
-        const entity = await TestingSpeed.query().find(entities[0].id);
+        const [entity] = await TestingSpeed.query().find(entities[0].id);
         assert.isDefined(entity);
 
-        const newEntities = await TestingSpeed.query().findMany(entities.map(x => x.id));
+        const [newEntities] = await TestingSpeed.query().findMany(entities.map(x => x.id));
         assert.equal(entities.length, newEntities.length);
 
         if (entity) {
-            const newEntity = await TestingSpeed.query().findUnique("number", entity.number);
+            const [newEntity] = await TestingSpeed.query().findUnique("number", entity.number);
             assert.isDefined(newEntity);
         }
 
-        const newEntities2 = await TestingSpeed.query().findUniqueMany("number", entities.map(x => x.number));
+        const [newEntities2] = await TestingSpeed.query().findUniqueMany("number", entities.map(x => x.number));
         assert.equal(entities.length, newEntities2.length);
 
-        const sortByEntities = await TestingSpeed.query()
+        const [sortByEntities] = await TestingSpeed.query()
             .where("createdAt", "<=", "+inf")
-            .sortBy("number", "desc").limit(limit).get();
+            .sortBy("number", "desc").limit(limit).run();
         assert.equal(sortByEntities.length, limit);
 
-        const sortByEntities2 = await TestingSpeed.query()
-            .sortBy("number", "desc").limit(limit).get();
+        const [sortByEntities2] = await TestingSpeed.query()
+            .sortBy("number", "desc").limit(limit).run();
         assert.equal(sortByEntities2.length, limit);
     });
 });
