@@ -9,7 +9,7 @@ import {
     RedisOrmSchemaError,
 } from "./src/"; // from "ts-redis-orm"
 
-@Entity({connection: "default", table: "Entity"})
+@Entity({connection: "default", table: "Entity", tablePrefix: "Prefix"})
 class MyEntity extends BaseEntity {
     @Column({autoIncrement: true})
     public id: number = 0;

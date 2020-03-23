@@ -83,15 +83,15 @@ import {
     RedisOrmOperationError, 
     RedisOrmQueryError, 
     RedisOrmSchemaError,
-    serviceInstance,
+    redisOrm,
 } from "ts-redis-orm";
 
-@Entity({connection: "default", table: "MyEntity", tablePrefix: "Prefix"})
+@Entity({connection: "default", table: "Entity", tablePrefix: "Prefix"})
 class MyEntity extends BaseEntity {
-    @Column({primary: true, autoIncrement: true})
+    @Column({autoIncrement: true})
     public id: number = 0;
 
-    @Column({primary: true, unique: true})
+    @Column({unique: true})
     public string: string = "";
 
     @Column({unique: true, index: true})
