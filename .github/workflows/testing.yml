@@ -8,7 +8,7 @@ on:
 jobs:
   testing:
     if: startsWith(github.event.head_commit.message, '1.0') != true
-    
+
     runs-on: ubuntu-latest
 
     services:
