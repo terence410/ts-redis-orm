@@ -39,6 +39,13 @@ class MyEntity extends BaseEntity {
     public object3: {name?: string, value?: number} = {};
 }
 
+const quickStart = async () => {
+    const entity1 = new MyEntity();
+    await entity1.save();
+
+    const [entity2] = await MyEntity.create({string: "value", number: 0}).save();
+};
+
 const main = async () => {
     // init the connection to redis, you don't need to call this. it will be done internally
     // for some scenarios, you can put this at the bootstrap of your project ot make sure everything is all right
