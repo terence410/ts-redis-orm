@@ -16,17 +16,17 @@
 
 [ts-redis-orm](https://www.npmjs.com/package/ts-redis-orm) targets to provide relational DB features to Redis Lover. 
 
-It is designed to preserve the performance of Redis, but extending all of the useful features that you found useful in relational DB such as 
-(multiple index, primary keys, unique keys, auto increment, aggregate, etc..)
+It is designed to preserve the performance of Redis, but extending all the useful features that you found useful in relational DB such as 
+(multiple index, primary keys, unique keys, auto increment, aggregate, etc.)
 
 Due to design limitation, the package doesn't work with Redis Cluster. 
 
-This package is mainly built on top of [ioredis](https://github.com/luin/ioredis) and tested with Redis 3, 4 and 5.
+This package mainly build on top of [ioredis](https://github.com/luin/ioredis) and tested with Redis 3, 4 and 5.
 
 # Breaking changes for v1
 - all operation will return performance result
 ```typescript
-const [entity, performanceResult] = await Entity.create({}).save();)
+const [entity, performanceResult] = await Entity.create({}).save();
 console.log(performanceResult);
 
 // This will print: 
@@ -56,7 +56,6 @@ console.log(performanceResult);
 - Import / Export DB into file.
 - Good Performance. You can create around 10, 000 entities in 1 second for 1 CPU process. Query is also extremely effective with proper indexing settings.
 
-
 # Quick Start
 ```typescript
 import {BaseEntity, Column, Entity} from "ts-redis-orm";
@@ -68,8 +67,10 @@ class MyEntity extends BaseEntity {
 }
 
 // usage 
-const entity = new MyEntity();
-await entity.save();
+const entity1 = new MyEntity();
+await entity1.save();
+
+const [entity2] = await MyEntity.create({string: "value", number: 0}).save();
 ```
 
 # Detail Example

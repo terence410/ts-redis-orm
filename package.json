@@ -1,6 +1,6 @@
 {
   "name": "ts-redis-orm",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A full functional Redis Orm library written in Typescript.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -21,8 +21,8 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@types/ioredis": "^4.14.3",
-    "ioredis": "^4.14.1",
+    "@types/ioredis": "^4.17.2",
+    "ioredis": "^4.17.3",
     "reflect-metadata": "^0.1.13"
   },
   "devDependencies": {
