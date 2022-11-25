@@ -1,9 +1,8 @@
 name: Publish To NPM
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+  release:
+    types: [published]
 
 env:
   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
