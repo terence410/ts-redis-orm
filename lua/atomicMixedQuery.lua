@@ -1,17 +1,17 @@
 local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupByColumn)
   local result = {}
   local total = {}
-  
+
   for i, id in ipairs(ids) do
     local currEntityStorageKey = getEntityStorageKey(namespace, id)
     local aggregateValue = false
     local groupByValue = "*"
-    
+
     -- only non count aggregate need the count value
     if aggregate ~= "count" then
       aggregateValue = redis.call("HGET", currEntityStorageKey, aggregateColumn)
     end
-    
+
     -- try to get the group by value
     if isnotempty(groupByColumn) then
       if groupByColumn == aggregateColumn then
@@ -19,64 +19,64 @@ local function aggregateData(ids, namespace, aggregate, aggregateColumn, groupBy
       else
         groupByValue = redis.call("HGET", currEntityStorageKey, groupByColumn)
       end
-      
-      if groupByValue == false then 
+
+      if groupByValue == false then
         groupByValue = ""
       end
     end
-    
-    -- convert the value 
+
+    -- convert the value
     aggregateValue = tonumber(aggregateValue)
     if aggregate == "count" then
       if result[groupByValue] then
         result[groupByValue] = result[groupByValue] + 1
-      else 
+      else
         result[groupByValue] = 1
       end
-      
+
     -- the rest of the aggregate must need a valid aggregate value
     elseif aggregateValue ~= nil then
       if aggregate == "min" then
         if result[groupByValue] ~= nil then
           result[groupByValue] = math.min(result[groupByValue], aggregateValue)
-        else 
+        else
           result[groupByValue] = aggregateValue
         end
-        
+
       elseif aggregate == "max" then
         if result[groupByValue] ~= nil then
           result[groupByValue] = math.max(result[groupByValue], aggregateValue)
-        else 
+        else
           result[groupByValue] = aggregateValue
         end
-        
+
       elseif aggregate == "sum" then
         if result[groupByValue] ~= nil then
           result[groupByValue] = result[groupByValue] + aggregateValue
-        else 
+        else
           result[groupByValue] = aggregateValue
         end
-        
+
       elseif aggregate == "avg" then
         if result[groupByValue] ~= nil then
           result[groupByValue] = result[groupByValue] + aggregateValue
           total[groupByValue] = total[groupByValue] + 1
-        else 
+        else
           result[groupByValue] = aggregateValue
           total[groupByValue] = 1
         end
-          
+
       end
     end
   end
-  
+
   -- do operation on avg
   if aggregate == "avg" then
     for key, value in pairs(result) do
       result[key] = result[key] / total[key]
     end
   end
-  
+
   return result
 end
 
@@ -117,7 +117,7 @@ end
 
 local function whereSearch(ids, namespace, whereArgvs)
   local newIds = {}
-  
+
   for i, id in ipairs(ids) do
     local condition = true
     for ii, whereArgv in ipairs(whereArgvs) do
@@ -149,12 +149,12 @@ local function whereSearch(ids, namespace, whereArgvs)
         end
       end
     end
-    
+
     if condition then
       table.insert(newIds, id)
     end
   end
-  
+
   return newIds
 end
 
@@ -207,12 +207,12 @@ for i = index, index + indexCount * 3 - 1, 3 do
 
   else
     local ids = redis.call("ZREVRANGEBYSCORE", indexStorageKey, max, min)
-    indexTbls[#indexTbls + 1] = table.toTable(ids)
+    indexTbls[#indexTbls + 1] = table_toTable(ids)
   end
 end
 
 -- find out all intersect id
-local ids = table.whereIndexIntersect(indexArr, indexTbls)
+local ids = table_whereIndexIntersect(indexArr, indexTbls)
 
 -- do where search if needed
 if whereCount > 0 then
@@ -246,7 +246,7 @@ else
   elseif offset ~= 0 or limit ~= -1 then
     --  offset and limit
     -- the index starts at 1, but if you use 0, 2, it can also get the first 2 records
-    ids = table.slice(ids, 1 + offset, limit == -1 and #ids or offset + limit)
+    ids = table_slice(ids, 1 + offset, limit == -1 and #ids or offset + limit)
   end
 end
 

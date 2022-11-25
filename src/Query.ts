@@ -47,7 +47,7 @@ export class Query<T extends typeof BaseEntity> {
         if (typeof id !== "string" && typeof id !== "number") {
             return [undefined, PerformanceHelper.getEmptyResult()];
         }
-        
+
         // if we have a valid entity id
         const entityId = id.toString();
         const primaryKey = redisOrm.getPrimaryKey(this._entityType);
@@ -86,13 +86,13 @@ export class Query<T extends typeof BaseEntity> {
 
         this._resumeTracking(trackingId);
 
-        const entities = result.map(x => x[0]).filter(x => x) as Array<InstanceType<T>>;
+        const entities = result.map(x => x[0]).filter(x => x) as InstanceType<T>[];
         return [entities, performanceResult];
     }
 
     public async findUnique(column: IArgvColumn<T>, value: IUniqueValueType): Promise<[InstanceType<T> | undefined, IPerformanceResult]> {
         if (!redisOrm.isUniqueKey(this._entityType, column as string)) {
-            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid unique column: ${column}`);
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid unique column: ${column.toString()}`);
         }
 
         // we do internal skip tracking of performance
@@ -144,7 +144,7 @@ export class Query<T extends typeof BaseEntity> {
         return [entities.length ? entities[0] : undefined, performanceResult];
     }
 
-    public async run(): Promise<[Array<InstanceType<T>>, IPerformanceResult]> {
+    public async run(): Promise<[InstanceType<T>[], IPerformanceResult]> {
         return await this._run();
     }
 
@@ -152,7 +152,7 @@ export class Query<T extends typeof BaseEntity> {
         const columnString = column as string;
         if (redisOrm.isIndexKey(this._entityType, columnString)) {
             if (!redisOrm.isIndexKey(this._entityType, columnString)) {
-                throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column}`);
+                throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column.toString()}`);
             }
 
             // convert value into string value
@@ -189,14 +189,14 @@ export class Query<T extends typeof BaseEntity> {
                     break;
 
                 default:
-                    throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid operator (${operator}) for index column: ${column}`);
+                    throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid operator (${operator}) for index column: ${column.toString()}`);
             }
 
             this._whereIndexes[columnString] = whereIndexType;
 
         } else if (redisOrm.isSearchableColumn(this._entityType, columnString)) {
             if (!["=", "!=", "like"].includes(operator)) {
-                throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid operator (${operator}) for non index column: ${column}`);
+                throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid operator (${operator}) for non index column: ${column.toString()}`);
             }
 
             // convert value into string value
@@ -205,7 +205,7 @@ export class Query<T extends typeof BaseEntity> {
             this._whereSearches[columnString] = {operator: operator as IStringOperator, value};
 
         } else {
-            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid search column: ${column}`);
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid search column: ${column.toString()}`);
 
         }
 
@@ -218,7 +218,7 @@ export class Query<T extends typeof BaseEntity> {
         }
 
         if (!redisOrm.isSortableColumn(this._entityType, column as string)) {
-            throw new RedisOrmQueryError(`(${this._entityType.name}) Not sortable Column: ${column}. You can only sort column type of Number, Boolean or Date`);
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Not sortable Column: ${column.toString()}. You can only sort column type of Number, Boolean or Date`);
         }
 
         this._sortBy = {column: column as string, order};
@@ -283,7 +283,7 @@ export class Query<T extends typeof BaseEntity> {
         Promise<[number, IPerformanceResult]> {
 
         if (!redisOrm.isIndexKey(this._entityType, column as string)) {
-            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column}`);
+            throw new RedisOrmQueryError(`(${this._entityType.name}) Invalid index column: ${column.toString()}`);
         }
 
         // make sure id is valid
@@ -335,7 +335,7 @@ export class Query<T extends typeof BaseEntity> {
             (!this._sortBy || this._sortBy.column === whereIndexKeys[0])) {
             return this._runSimple();
         }
-        
+
         // we send to redis lua to do complex query
         const params = [
             whereIndexKeys.length,

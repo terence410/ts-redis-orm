@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import IORedis from "ioredis";
+import * as IORedis from "ioredis";
 import * as path from "path";
 import {configLoader} from "./configLoader";
 import {RedisOrmDecoratorError} from "./errors/RedisOrmDecoratorError";
@@ -37,7 +37,7 @@ class RedisOrm {
     }
 
     // endregion
-    
+
     // region public methods: get
 
     public getConnectionConfig(target: object): ConnectionConfig {
@@ -194,7 +194,7 @@ class RedisOrm {
         if (!redisContainer) {
             const connectionConfig = this.getConnectionConfig(target);
             redisContainer = {
-                redis: new IORedis(connectionConfig),
+                redis: new IORedis.default(connectionConfig),
                 connecting: false,
                 ready: false,
                 schemaErrors: [],
@@ -272,7 +272,7 @@ class RedisOrm {
         const schemasList: IEntityColumns = {};
         const connectionConfig = redisOrm.getConnectionConfigByConnection(connection);
         if (connectionConfig) {
-            const redis = new IORedis(connectionConfig);
+            const redis = new IORedis.default(connectionConfig);
             const storageKey = redisOrm.getSchemasStorageKey();
 
             const result = await redis.hgetall(storageKey);
@@ -318,7 +318,7 @@ class RedisOrm {
             redisContainer.connecting = false;
         }
     }
-    
+
     private async _registerLua(target: object, redisContainer: IRedisContainer) {
         try {
             const luaShared = fs.readFileSync(path.join(__dirname, "../lua/shared.lua"), {encoding: "utf8"});

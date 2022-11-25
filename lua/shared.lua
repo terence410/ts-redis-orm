@@ -77,13 +77,13 @@ local function verifySchemas(tableName, clientSchemasString)
     return remoteSchemas == clientSchemasString
 end
 
-function table.check(indexArr)
+local function table_check(indexArr)
     for i, val in pairs( indexArr ) do
         logit(tostring(i) .. ": (" .. type(val) .. ") " .. val)
     end
 end
 
-function table.hasKey(dict, key)
+local function table_hasKey(dict, key)
     for _key, value in pairs(dict) do
         if _key == key then
             return true
@@ -92,7 +92,7 @@ function table.hasKey(dict, key)
     return false
 end
 
-function table.hasValue(array, value)
+local function table_hasValue(array, value)
     for i, _value in ipairs(array) do
         if _value == value then
             return true
@@ -101,7 +101,7 @@ function table.hasValue(array, value)
     return false
 end
 
-function table.slice(arr, first, last)
+local function table_slice(arr, first, last)
     local sliced = {}
     for i = first or 1, last or #arr, 1 do
         sliced[#sliced + 1] = arr[i]
@@ -109,7 +109,7 @@ function table.slice(arr, first, last)
     return sliced
 end
 
-function table.values( tbl )
+local function table_values( tbl )
     local arr = {}
     for key, val in pairs( tbl ) do
         arr[ #arr + 1 ] = val
@@ -117,7 +117,7 @@ function table.values( tbl )
     return arr
 end
 
-function table.flattern(dict)
+local function table_flattern(dict)
     local tbl = {}
     for k, v in pairs(dict) do
         table.insert(tbl, k)
@@ -126,7 +126,7 @@ function table.flattern(dict)
     return tbl
 end
 
-function table.keys( tbl )
+local function table_keys( tbl )
     local arr = {}
     for key, val in pairs( tbl ) do
         arr[ #arr + 1 ] = key
@@ -134,7 +134,7 @@ function table.keys( tbl )
     return arr
 end
 
-function table.toTable(arr)
+local function table_toTable(arr)
     local tbl = {}
     for i, val in ipairs(arr) do
         tbl[val] = 1
@@ -142,7 +142,7 @@ function table.toTable(arr)
     return tbl
 end
 
-function table.whereIndexIntersect(indexArr, tbls)
+local function table_whereIndexIntersect(indexArr, tbls)
     if #tbls < 1 then return indexArr end
     local tblParis = ipairs(tbls)
     for i, v in pairs(indexArr) do
@@ -153,7 +153,7 @@ function table.whereIndexIntersect(indexArr, tbls)
         end
     end
     -- this indexArr will become non iterable table, convert it back to array
-    return table.values(indexArr)
+    return table_values(indexArr)
 end
 
 -- others

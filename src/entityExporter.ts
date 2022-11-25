@@ -29,7 +29,7 @@ class EntityExporter {
             });
 
             writeStream.on("finish", () => {
-                resolve();
+                resolve(undefined);
             });
 
             writeStream.end();

@@ -219,6 +219,7 @@ export class BaseEntity {
     public setTable(table: string) {
         this._table = table;
         this._tableName = redisOrm.getTablePrefix(this.constructor) +  table;
+        return this;
     }
 
     public getTable() {
