@@ -21,7 +21,7 @@ local currEntityStorageKey = getEntityStorageKey(tableName, entityId)
 -- check if unique exist
 if #uniqueKeys > 0 then
     for i, uniqueKey in pairs(uniqueKeys) do
-        if table.hasKey(changes, uniqueKey) then
+        if table_hasKey(changes, uniqueKey) then
             -- if the changes has set value
             local newValue = changes[uniqueKey]
             local existEntityId = redis.call("HGET", getUniqueStorageKey(tableName, uniqueKey), newValue)
@@ -88,7 +88,7 @@ end
 -- process increments first
 for column, value in pairs(increments) do
     -- make sure it's not unique key
-    if not table.hasValue(uniqueKeys, column) then
+    if not table_hasValue(uniqueKeys, column) then
         local newValue = redis.call("HINCRBY", currEntityStorageKey, column, value)
         result["increments"] = {}
         result["increments"][column] = newValue
@@ -102,7 +102,7 @@ end
 if #indexKeys > 0 then
     for i, indexKey in pairs(indexKeys) do
         -- if the changes has set value
-        if table.hasKey(changes, indexKey) then
+        if table_hasKey(changes, indexKey) then
             local newValue = changes[indexKey]
             if isnumeric(newValue) then
                 redis.call("ZADD", getIndexStorageKey(tableName, indexKey), newValue, entityId)
@@ -117,7 +117,7 @@ end
 if #uniqueKeys > 0 then
     for i, uniqueKey in pairs(uniqueKeys) do
         -- if the changes has set value
-        if table.hasKey(changes, uniqueKey) then
+        if table_hasKey(changes, uniqueKey) then
             local newValue = changes[uniqueKey]
             local value = redis.call("HGET", currEntityStorageKey, uniqueKey)
 
@@ -133,7 +133,7 @@ if #uniqueKeys > 0 then
 end
 
 -- save all values
-redis.call("HMSET", currEntityStorageKey, unpack(table.flattern(changes)))
+redis.call("HMSET", currEntityStorageKey, unpack(table_flattern(changes)))
 
 -- send result
 return cjson.encode(result)

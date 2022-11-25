@@ -1,13 +1,10 @@
 # Redis ORM (Typescript)
 
 [![NPM version][npm-image]][npm-url]
-[![Test][github-action-image]][github-action-url]
 [![Test coverage][codecov-image]][codecov-url]
 
 [npm-image]: https://img.shields.io/npm/v/ts-redis-orm.svg
 [npm-url]: https://npmjs.org/package/ts-redis-orm
-[github-action-image]: https://github.com/terence410/ts-redis-orm/workflows/Testing/badge.svg
-[github-action-url]: https://github.com/terence410/ts-redis-orm/actions
 [codecov-image]: https://img.shields.io/codecov/c/github/terence410/ts-redis-orm.svg?style=flat-square
 [codecov-url]: https://codecov.io/gh/terence410/ts-redis-orm
 

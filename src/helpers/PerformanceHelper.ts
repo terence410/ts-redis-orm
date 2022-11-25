@@ -1,4 +1,4 @@
-import IORedis from "ioredis";
+import * as IORedis from "ioredis";
 import {IPerformanceResult} from "../types";
 
 type IOptions = {
@@ -82,7 +82,7 @@ export  class PerformanceHelper {
             ...diffRedisInfo,
         } as IPerformanceResult;
     }
-    
+
     private async _getRedisInfoAll() {
         const commandStats = await this._redis.info("all");
         const stats = commandStats.split(/\r?\n/).splice(1);
