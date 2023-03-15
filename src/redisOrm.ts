@@ -17,6 +17,10 @@ class RedisOrm {
     private _entitySchemasJsons = new Map<object, string>(); // cache for faster JSON.stringify
     private _connectionConfigs!: {[key: string]: ConnectionConfig};
 
+    public configure(connectionConfig: {[key: string]: ConnectionConfig}) {
+      this._connectionConfigs = connectionConfig;
+    }
+
     // region public methods: set
 
     /** @internal */
